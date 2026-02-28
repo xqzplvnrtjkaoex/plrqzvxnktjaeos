@@ -1,0 +1,1280 @@
+openapi: "3.0.3"
+info:
+  title: Madome API
+  version: "1.0.0"
+  description: |
+    # Authentication
+
+    Auth info is stored in `Cookie`:
+    ```
+    madome_access_token=<token>
+    madome_refresh_token=<token>
+    ```
+
+    On token issue or refresh, both cookies are set:
+    ```
+    Set-Cookie: madome_access_token=<token>; Domain=<root>; Max-Age=604800; Path=/; SameSite=Lax; HttpOnly; Secure
+    Set-Cookie: madome_refresh_token=<token>; Domain=<root>; Max-Age=604800; Path=/auth/token; SameSite=Lax; HttpOnly; Secure
+    ```
+
+    `madome_access_token` expires after 4 hours (JWT exp), `madome_refresh_token` expires after 7 days (cookie Max-Age).
+    Refresh renews both tokens.
+
+    # Frozen Compat Spec
+
+    This file is the frozen public OpenAPI contract for the Compat phase.
+    Do not modify it — it is the source of truth for byte-for-byte API compatibility.
+
+servers:
+  - url: https://{API_HOST}
+    description: API gateway
+
+paths:
+  # ── Auth ─────────────────────────────────────────────────────────────────────
+
+  /auth/code:
+    post:
+      summary: Create authcode
+      description: Sends a one-time authcode to the user's email address.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "201":
+          description: Authcode created and email sent.
+        "404":
+          description: Email address not registered.
+        "429":
+          description: Rate limit exceeded.
+
+  /auth/token:
+    get:
+      summary: Check access token
+      description: Validates the access token cookie. Optional `role` query param asserts minimum role.
+      tags: [auth]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+      responses:
+        "200":
+          description: Token valid.
+          headers:
+            x-madome-access-token-expires:
+              description: Epoch seconds when the access token expires.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenInfo"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: Insufficient role.
+    post:
+      summary: Create token pair (login)
+      description: Issues access + refresh tokens using a valid authcode.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+      responses:
+        "201":
+          description: Token pair issued. Both Set-Cookie headers are present.
+          headers:
+            x-madome-access-token-expires:
+              description: Epoch seconds when the access token expires.
+              schema:
+                type: integer
+            Set-Cookie:
+              description: madome_access_token and madome_refresh_token cookies.
+              schema:
+                type: string
+        "404":
+          description: Email or authcode not found / expired.
+    patch:
+      summary: Refresh token pair
+      description: Issues a new token pair using the refresh token cookie. The access token may be expired.
+      tags: [auth]
+      security:
+        - refreshTokenCookie: []
+      responses:
+        "201":
+          description: New token pair issued.
+          headers:
+            x-madome-access-token-expires:
+              description: Epoch seconds when the new access token expires.
+              schema:
+                type: integer
+            Set-Cookie:
+              description: New madome_access_token and madome_refresh_token cookies.
+              schema:
+                type: string
+        "401":
+          description: Missing or invalid refresh token.
+    delete:
+      summary: Delete token pair (logout)
+      description: Clears both cookies with Max-Age=0.
+      tags: [auth]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "204":
+          description: Logged out. Both cookies cleared.
+          headers:
+            Set-Cookie:
+              description: madome_access_token and madome_refresh_token with Max-Age=0.
+              schema:
+                type: string
+        "401":
+          description: Missing or invalid access token.
+
+  /auth/passkeys:
+    get:
+      summary: List passkeys
+      tags: [auth, passkey]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "200":
+          description: List of registered passkeys.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Passkey"
+        "401":
+          description: Unauthorized.
+
+  /auth/passkeys/{credential_id}:
+    delete:
+      summary: Delete passkey
+      tags: [auth, passkey]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: credential_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Passkey deleted.
+        "400":
+          description: Invalid credential ID.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Passkey not found.
+
+  /auth/passkey/registration:
+    post:
+      summary: Start passkey registration
+      tags: [auth, passkey]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "200":
+          description: Registration challenge. Pass to authenticator.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: PublicKeyCredentialCreationOptions (WebAuthn)
+        "401":
+          description: Unauthorized.
+    patch:
+      summary: Finish passkey registration
+      tags: [auth, passkey]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: registration-id
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: RegisterPublicKeyCredential (Base64UrlSafe-encoded fields)
+      responses:
+        "201":
+          description: Passkey registered.
+        "401":
+          description: Unauthorized or challenge verification failed.
+
+  /auth/passkey/authentication:
+    post:
+      summary: Start passkey authentication
+      tags: [auth, passkey]
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: Authentication challenge. Pass to authenticator.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: PublicKeyCredentialRequestOptions (WebAuthn)
+        "401":
+          description: Challenge creation failed.
+        "404":
+          description: Email not found.
+    patch:
+      summary: Finish passkey authentication
+      tags: [auth, passkey]
+      parameters:
+        - name: authentication-id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: PublicKeyCredential (Base64UrlSafe-encoded fields)
+      responses:
+        "201":
+          description: Authenticated. Token pair issued.
+          headers:
+            Set-Cookie:
+              description: madome_access_token and madome_refresh_token cookies.
+              schema:
+                type: string
+        "401":
+          description: Authentication failed.
+
+  # ── Books (Library) ───────────────────────────────────────────────────────────
+
+  /books:
+    get:
+      summary: List books / get by IDs / get by tags
+      description: |
+        Dispatches based on query params:
+        - `ids[]` present → get books by IDs
+        - `tags[]` present → get books by tags
+        - Otherwise → paginated list
+
+        Note: `kinds[]` and legacy `kind` (deprecated since 20240120) both accepted.
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: per-page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: sort-by
+          in: query
+          schema:
+            type: string
+            enum:
+              - id-desc
+              - id-asc
+              - published-at-desc
+              - published-at-asc
+              - checked-at-desc
+              - checked-at-asc
+              - updated-at-desc
+              - updated-at-asc
+              - random
+            default: id-desc
+        - name: kinds[]
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/BookKind"
+        - name: released
+          in: query
+          schema:
+            type: boolean
+        - name: legacy-only
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: exclude-dislikes
+          in: query
+          schema:
+            type: boolean
+        - name: ids[]
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: tags[]
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: List of books.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Add book (admin)
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookInput"
+      responses:
+        "201":
+          description: Book added.
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Insufficient role (requires role ≥ 2).
+        "409":
+          description: Book already exists.
+    patch:
+      summary: Update book (admin)
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookInput"
+      responses:
+        "200":
+          description: Book updated.
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Insufficient role (requires role ≥ 2).
+        "409":
+          description: Conflict.
+
+  /books/search:
+    get:
+      summary: Full-text search books (Meilisearch)
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: kinds[]
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/BookKind"
+        - name: per-page
+          in: query
+          schema:
+            type: integer
+            default: 25
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: sort-by
+          in: query
+          schema:
+            type: string
+            enum: [rank-desc, id-desc, id-asc]
+            default: rank-desc
+        - name: completion
+          in: query
+          schema:
+            type: boolean
+        - name: exclude-dislikes
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+        "401":
+          description: Unauthorized.
+
+  /books/tags/search:
+    get:
+      summary: Search book tags
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching tags.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookTag"
+        "401":
+          description: Unauthorized.
+
+  /books/tags/{tag}:
+    get:
+      summary: Get book tag by kind-name
+      description: |
+        `{tag}` = `{kind}-{name}` (e.g. `artist-example`).
+        Backwards-compat: if lookup fails, retries with hyphens converted to spaces (deprecated, logged as warn).
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: tag
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tag found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookTag"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Tag not found.
+
+  /books/{book_id}:
+    get:
+      summary: Get book by ID
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Book found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Book not found.
+
+  /books/{book_id}/release:
+    patch:
+      summary: Release book (admin)
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Book released.
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Insufficient role (requires role ≥ 2).
+        "404":
+          description: Book not found.
+
+  /books/{book_id}/check:
+    patch:
+      summary: Update book checked_at (admin)
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: checked_at updated.
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Insufficient role (requires role ≥ 2).
+
+  /books/currently-renewing:
+    get:
+      summary: List all books currently being renewed
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "200":
+          description: Books in renewal.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+        "401":
+          description: Unauthorized.
+
+  /books/{existing_id}/currently-renewing:
+    get:
+      summary: Check if a book is currently being renewed
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: existing_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Book is being renewed.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Book is not being renewed.
+
+  /books/{existing_id}/renew/{new_id}:
+    post:
+      summary: Prepare book renewal (admin)
+      tags: [library]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: existing_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: new_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Renewal queued.
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Insufficient role (requires role ≥ 2).
+        "404":
+          description: Book not found.
+
+  /open-graph/books/{book_id}:
+    get:
+      summary: Open Graph metadata for a book (no auth)
+      tags: [library, open-graph]
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: HTML page with OG meta tags.
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: Book not found.
+
+  /open-graph/books/tags/{kind}/{name}:
+    get:
+      summary: Open Graph metadata for a book tag (no auth)
+      tags: [library, open-graph]
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/BookTagKind"
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: HTML page with OG meta tags.
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: Tag not found.
+
+  # ── Users ─────────────────────────────────────────────────────────────────────
+
+  /users:
+    post:
+      summary: Create user account (admin)
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, handle, email]
+              properties:
+                name:
+                  type: string
+                handle:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: integer
+                  enum: [0, 1]
+      responses:
+        "201":
+          description: User created.
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Insufficient role (requires role ≥ 2).
+        "409":
+          description: Email or handle already taken.
+
+  /users/@me:
+    get:
+      summary: Get current user
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "200":
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+    patch:
+      summary: Update name or handle
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                handle:
+                  type: string
+      responses:
+        "204":
+          description: Updated.
+        "401":
+          description: Unauthorized.
+        "409":
+          description: Handle already taken.
+
+  /users/@me/tastes:
+    get:
+      summary: List tastes (optionally filtered by book IDs)
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: book-ids[]
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+      responses:
+        "200":
+          description: List of tastes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Taste"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Add or update taste
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TasteInput"
+      responses:
+        "201":
+          description: Taste added.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Book or tag not found.
+        "409":
+          description: Taste already exists.
+    delete:
+      summary: Delete taste (JSON body)
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TasteDeleteInput"
+      responses:
+        "204":
+          description: Taste deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Taste not found.
+
+  /users/@me/tastes/{kind}/{value}:
+    get:
+      summary: Get single taste
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [book, book_tag]
+        - name: value
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Taste found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Taste"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Taste not found.
+
+  /users/@me/histories:
+    get:
+      summary: List histories
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "200":
+          description: List of histories.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/History"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Create or update history
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HistoryInput"
+      responses:
+        "201":
+          description: History created or updated.
+        "401":
+          description: Unauthorized.
+    delete:
+      summary: Delete history (JSON body)
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HistoryDeleteInput"
+      responses:
+        "204":
+          description: History deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: History not found.
+
+  /users/@me/histories/{kind}/{value}:
+    get:
+      summary: Get single history
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [book]
+        - name: value
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: History found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/History"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: History not found.
+
+  /users/@me/notifications:
+    get:
+      summary: List notifications
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      responses:
+        "200":
+          description: List of notifications.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          description: Unauthorized.
+
+  /users/@me/fcm-token:
+    post:
+      summary: Create or update FCM token
+      tags: [users]
+      security:
+        - accessTokenCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "201":
+          description: FCM token registered.
+        "401":
+          description: Unauthorized.
+
+components:
+  securitySchemes:
+    accessTokenCookie:
+      type: apiKey
+      in: cookie
+      name: madome_access_token
+    refreshTokenCookie:
+      type: apiKey
+      in: cookie
+      name: madome_refresh_token
+
+  schemas:
+    TokenInfo:
+      type: object
+      required: [user_id, user_role, access_token_exp]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        user_role:
+          type: integer
+          enum: [0, 1, 2]
+        access_token_exp:
+          type: integer
+          description: Epoch seconds when the access token expires.
+
+    Passkey:
+      type: object
+      required: [credential_id, created_at]
+      properties:
+        credential_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    BookKind:
+      type: string
+      enum:
+        - doujinshi
+        - manga
+        - game-cg
+        - artist-cg
+        - image-set
+
+    BookTagKind:
+      type: string
+      enum:
+        - artist
+        - group
+        - series
+        - character
+        - female
+        - male
+        - misc
+
+    Book:
+      type: object
+      required: [id, title, kind, tags, legacy, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        kind:
+          $ref: "#/components/schemas/BookKind"
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookTag"
+        legacy:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    BookInput:
+      type: object
+      required: [id, title, kind, tags]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        kind:
+          $ref: "#/components/schemas/BookKind"
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookTag"
+
+    BookTag:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          $ref: "#/components/schemas/BookTagKind"
+        name:
+          type: string
+
+    User:
+      type: object
+      required: [id, name, handle, email, role, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        handle:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: integer
+          enum: [0, 1, 2]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Taste:
+      oneOf:
+        - $ref: "#/components/schemas/TasteBook"
+        - $ref: "#/components/schemas/TasteBookTag"
+      discriminator:
+        propertyName: kind
+        mapping:
+          book: "#/components/schemas/TasteBook"
+          book_tag: "#/components/schemas/TasteBookTag"
+
+    TasteBook:
+      type: object
+      required: [kind, book_id, is_dislike, created_at]
+      properties:
+        kind:
+          type: string
+          enum: [book]
+        book_id:
+          type: integer
+        is_dislike:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    TasteBookTag:
+      type: object
+      required: [kind, tag_kind, tag_name, is_dislike, created_at]
+      properties:
+        kind:
+          type: string
+          enum: [book_tag]
+        tag_kind:
+          type: string
+        tag_name:
+          type: string
+        is_dislike:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    TasteInput:
+      oneOf:
+        - type: object
+          required: [kind, book_id, is_dislike]
+          properties:
+            kind:
+              type: string
+              enum: [book]
+            book_id:
+              type: integer
+              minimum: 1
+            is_dislike:
+              type: boolean
+        - type: object
+          required: [kind, tag_kind, tag_name, is_dislike]
+          properties:
+            kind:
+              type: string
+              enum: [book_tag]
+            tag_kind:
+              type: string
+            tag_name:
+              type: string
+            is_dislike:
+              type: boolean
+
+    TasteDeleteInput:
+      oneOf:
+        - type: object
+          required: [kind, book_id]
+          properties:
+            kind:
+              type: string
+              enum: [book]
+            book_id:
+              type: integer
+              minimum: 1
+        - type: object
+          required: [kind, tag_kind, tag_name]
+          properties:
+            kind:
+              type: string
+              enum: [book_tag]
+            tag_kind:
+              type: string
+            tag_name:
+              type: string
+
+    History:
+      type: object
+      required: [kind, book_id, page, created_at, updated_at]
+      properties:
+        kind:
+          type: string
+          enum: [book]
+        book_id:
+          type: integer
+        page:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    HistoryInput:
+      type: object
+      required: [kind, book_id, page]
+      properties:
+        kind:
+          type: string
+          enum: [book]
+        book_id:
+          type: integer
+          minimum: 1
+        page:
+          type: integer
+          minimum: 1
+
+    HistoryDeleteInput:
+      type: object
+      required: [kind, book_id]
+      properties:
+        kind:
+          type: string
+          enum: [book]
+        book_id:
+          type: integer
+          minimum: 1
+
+    Notification:
+      type: object
+      required: [kind, book_id, book_tags, created_at]
+      properties:
+        kind:
+          type: string
+          enum: [book]
+        book_id:
+          type: integer
+        book_tags:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+            minItems: 2
+            maxItems: 2
+        created_at:
+          type: string
+          format: date-time
