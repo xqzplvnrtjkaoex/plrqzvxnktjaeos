@@ -96,4 +96,5 @@ node_modules/
 
 # gaji
 .gaji-cache.json
+gaji.config.local.ts
 workflows/generated/
