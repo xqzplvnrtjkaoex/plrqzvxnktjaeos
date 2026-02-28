@@ -1,0 +1,13 @@
+syntax = "proto3";
+package library;
+
+service LibraryService {
+  rpc RenewBook(RenewBookRequest) returns (Empty);
+}
+
+message RenewBookRequest {
+  uint32 old_book_id = 1;
+  uint32 new_book_id = 2;
+}
+
+message Empty {}

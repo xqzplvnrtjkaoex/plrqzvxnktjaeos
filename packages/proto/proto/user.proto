@@ -1,0 +1,67 @@
+syntax = "proto3";
+package user;
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc GetTastes(GetTastesRequest) returns (TasteList);
+  rpc RenewBook(RenewBookRequest) returns (Empty);
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string handle = 4;
+  uint32 role = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message GetTastesRequest {
+  string user_id = 1;
+  bool dislikes_only = 2;
+}
+
+message Taste {
+  oneof kind {
+    BookTaste book = 1;
+    BookTagTaste book_tag = 2;
+  }
+}
+
+message BookTaste {
+  uint32 book_id = 1;
+  bool is_dislike = 2;
+}
+
+message BookTagTaste {
+  string tag_kind = 1;
+  string tag_name = 2;
+  bool is_dislike = 3;
+}
+
+message TasteList {
+  repeated Taste tastes = 1;
+}
+
+message RenewBookRequest {
+  uint32 old_book_id = 1;
+  uint32 new_book_id = 2;
+}
+
+message CreateNotificationRequest {
+  string user_id = 1;
+  uint32 book_id = 2;
+  repeated BookTag book_tags = 3;
+}
+
+message BookTag {
+  string kind = 1;
+  string name = 2;
+}
+
+message Empty {}
