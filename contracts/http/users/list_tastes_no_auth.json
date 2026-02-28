@@ -1,0 +1,12 @@
+{
+  "service": "users",
+  "id": "list_tastes_no_auth",
+  "description": "GET /users/@me/tastes without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "GET",
+    "path": "/users/@me/tastes"
+  },
+  "expect": {
+    "status": 401
+  }
+}

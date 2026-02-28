@@ -1,0 +1,18 @@
+{
+  "service": "auth",
+  "id": "create_authcode_unknown_email",
+  "description": "POST /auth/code with unknown email → 404 Not Found",
+  "request": {
+    "method": "POST",
+    "path": "/auth/code",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "email": "unknown@example.com"
+    }
+  },
+  "expect": {
+    "status": 404
+  }
+}

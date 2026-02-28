@@ -1,0 +1,19 @@
+{
+  "service": "auth",
+  "id": "create_token_pair_unknown_email",
+  "description": "POST /auth/token with unknown email/code → 404 Not Found",
+  "request": {
+    "method": "POST",
+    "path": "/auth/token",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "email": "unknown@example.com",
+      "code": "000000000000"
+    }
+  },
+  "expect": {
+    "status": 404
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "service": "auth",
+  "id": "delete_token_pair_no_auth",
+  "description": "DELETE /auth/token without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "DELETE",
+    "path": "/auth/token"
+  },
+  "expect": {
+    "status": 401
+  }
+}
