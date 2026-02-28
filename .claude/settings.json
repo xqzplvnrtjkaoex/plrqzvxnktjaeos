@@ -1,12 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "plansDirectory": ".claude/plans",
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "sandbox": {
-    "enabled": true,
-    "network": {
-      "allowLocalBinding": true
-    }
+  "teammateMode": "tmux",
+  "permissions": {
+    "additionalDirectories": [],
+    "allow": ["Read(./*)", "Edit(./*)"],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./secrets/**)"
+    ]
   }
 }
