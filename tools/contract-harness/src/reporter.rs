@@ -7,6 +7,12 @@ pub struct Reporter {
     failed: usize,
 }
 
+impl Default for Reporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Reporter {
     pub fn new() -> Self {
         Self {

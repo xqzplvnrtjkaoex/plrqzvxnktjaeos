@@ -102,3 +102,98 @@ fn should_set_both_cookies_with_max_age_604800_on_login() { }
 Rule: all `#[test]` functions must start with `should_`. No exceptions.
 
 **If a behavior has no test, it does not exist.**
+
+---
+
+## Self-contained E2E harnesses start the service themselves
+
+E2E and contract harness binaries must start the service under test in-process — never rely
+on an externally running server. This makes the full suite runnable with a single command.
+
+**Pattern:**
+
+```rust
+// Random port — avoids conflict with a running service instance
+let listener = TcpListener::bind("127.0.0.1:0").await?;
+let port     = listener.local_addr()?.port();
+let base_url = format!("http://127.0.0.1:{port}");
+
+// Start service as a background task
+tokio::spawn(async move {
+    axum::serve(listener, build_router(state)).await.unwrap();
+});
+```
+
+- Call `dotenv::dotenv().ok()` at startup for dev convenience (`.env` at workspace root).
+- Run migrations automatically (`Migrator::up(&db, None)`) — idempotent, safe to repeat.
+- Build `AppState` directly from `std::env::var()` — no intermediate config struct needed in
+  test binaries.
+- Service-startup deps (`madome-auth`, `madome-auth-migration`, `sea-orm`, `deadpool-redis`,
+  `webauthn-rs`) belong in the harness crate only — do not add them to the service's own
+  `Cargo.toml`.
+
+**Migration lib extraction:** When a migration crate is `[[bin]]`-only, extract the
+`Migrator` struct into a `[lib]` target so harness binaries can import and call
+`Migrator::up(&db, None)` programmatically. The `[[bin]]` target then delegates to the lib:
+
+```rust
+// migration/src/main.rs — thin wrapper after lib extraction
+use madome_auth_migration::Migrator;
+
+#[tokio::main]
+async fn main() {
+    sea_orm_migration::cli::run_cli(Migrator).await;
+}
+```
+
+---
+
+## Docker-orchestrated harnesses (for services requiring a real database/cache)
+
+When the service under test needs PostgreSQL + Redis, spin them up as Docker containers
+instead of requiring manual infra setup. This keeps the single-command guarantee.
+
+Pattern (using `bollard` + `fd-lock`):
+
+```rust
+// 1. Exclusive lock — only one harness instance at a time.
+//    OS auto-releases even on crash/panic (no stale lock).
+let lock_path = std::env::temp_dir().join("madome-contract-harness.lock");
+let lock_file = std::fs::File::create(&lock_path)?;
+let mut lock  = fd_lock::RwLock::new(lock_file);
+let _guard    = lock.try_write().map_err(|_| anyhow!("another instance is running"))?;
+
+// 2. Connect to Docker daemon (DOCKER_HOST env var → local socket or remote TCP).
+let mut orch = DockerOrchestrator::connect(&config.docker_host).await?;
+
+// 3. Crash recovery — remove non-running test containers from a previous run.
+orch.cleanup_stale().await?;
+
+// 4. Start infra containers on random host ports.
+let database_url = orch.start_postgres().await?;
+let redis_url    = orch.start_redis().await?;
+
+// 5. Run services in-process against the containers.
+let result = run_services(&infra, &config, &workspace_root).await;
+
+// 6. Always tear down (success or failure — never use Drop for this).
+orch.cleanup().await.ok();
+result?;
+```
+
+Rules:
+
+- Label every test container (`madome.role=contract-test`) for safe targeted cleanup.
+- `cleanup_stale()` removes only **non-running** containers (exited/dead) — never kills
+  containers from a concurrently running instance.
+- Use **Cargo feature flags** to compile service-specific code into the harness binary:
+  `--features auth` enables only the auth service runner; `--features auth,users` enables
+  both. Building without features keeps the URL-mode binary unchanged.
+- Service-specific deps (`madome-auth`, migrations, etc.) must be `optional = true` in
+  `Cargo.toml` and gated behind their feature. Never add them to `[dependencies]` directly.
+- `bollard` and `fd-lock` are always-present deps (needed for Docker orchestration even
+  without service features).
+- Pull the image with `docker.create_image()` before `create_container()` — Docker returns
+  404 if the image is not already present locally.
+- Containers use `HostPort = ""` (random port); inspect after start to obtain the mapped
+  port. `tcp://HOST:PORT` → use HOST as the container address; `unix://...` → use `127.0.0.1`.
