@@ -16,9 +16,9 @@ pub struct AuthConfig {
     pub webauthn_origin: String,
     /// Cookie domain attribute (root domain, e.g. "example.com").
     pub cookie_domain: String,
-    /// TCP port to listen on (default 3112).
+    /// TCP port to listen on (default 3112). Env var: `AUTH_PORT`.
     #[serde(default = "default_port")]
-    pub port: u16,
+    pub auth_port: u16,
 }
 
 fn default_port() -> u16 {

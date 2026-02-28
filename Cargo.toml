@@ -85,6 +85,9 @@ webauthn-rs = { version = "0.5", features = [
     "danger-allow-state-serialisation",
 ] }
 
+# Docker
+bollard = { version = "0.20" }
+
 # misc
 bytes = { version = "1.11" }
 http = { version = "1.4" }

@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -78,4 +78,38 @@ pub fn load_all(workspace_root: &Path, service: Option<&str>) -> Result<Vec<Fixt
 
     fixtures.sort_by(|a, b| a.service.cmp(&b.service).then(a.id.cmp(&b.id)));
     Ok(fixtures)
+}
+
+/// Walk up from the contract-harness manifest dir to find the workspace root
+/// (the directory containing `Cargo.lock`).
+pub fn workspace_root() -> PathBuf {
+    let start = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    start
+        .ancestors()
+        .find(|p| p.join("Cargo.lock").exists())
+        .unwrap_or(&start)
+        .to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::workspace_root;
+
+    #[test]
+    fn workspace_root_has_cargo_lock() {
+        let root = workspace_root();
+        assert!(
+            root.join("Cargo.lock").exists(),
+            "workspace root should contain Cargo.lock"
+        );
+    }
+
+    #[test]
+    fn workspace_root_has_contracts_dir() {
+        let root = workspace_root();
+        assert!(
+            root.join("contracts").exists(),
+            "workspace root should contain contracts/"
+        );
+    }
 }

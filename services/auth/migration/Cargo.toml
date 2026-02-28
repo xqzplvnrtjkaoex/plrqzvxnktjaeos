@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[lib]
+name = "madome_auth_migration"
+path = "src/lib.rs"
+
 [[bin]]
 name = "migration"
 path = "src/main.rs"

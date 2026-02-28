@@ -4,14 +4,46 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+auth = [
+    "dep:madome-auth",
+    "dep:madome-auth-migration",
+    "dep:axum",
+    "dep:sea-orm",
+    "dep:sea-orm-migration",
+    "dep:deadpool-redis",
+    "dep:webauthn-rs",
+    "dep:url",
+]
+
+[lib]
+name = "contract_harness"
+path = "src/lib.rs"
+
 [[bin]]
 name = "contract-harness"
 path = "src/main.rs"
 
 [dependencies]
-tokio = { workspace = true }
-reqwest = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-clap = { workspace = true }
-anyhow = { workspace = true }
+# always present — Docker orchestration + URL-mode baseline
+bollard            = { workspace = true }
+fd-lock            = "4"
+futures            = { workspace = true }
+tokio              = { workspace = true }
+reqwest            = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+clap               = { workspace = true }
+anyhow             = { workspace = true }
+tracing-subscriber = { workspace = true }
+dotenv             = "0.15"
+
+# auth feature only
+madome-auth           = { path = "../../services/auth",           optional = true }
+madome-auth-migration = { path = "../../services/auth/migration", optional = true }
+axum                  = { workspace = true, optional = true }
+sea-orm               = { workspace = true, optional = true }
+sea-orm-migration     = { workspace = true, optional = true }
+deadpool-redis        = { workspace = true, optional = true }
+webauthn-rs           = { workspace = true, optional = true }
+url                   = { version = "2",    optional = true }

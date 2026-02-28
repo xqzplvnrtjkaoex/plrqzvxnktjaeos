@@ -41,7 +41,7 @@ async fn main() {
     };
 
     let router = build_router(state);
-    let addr = format!("0.0.0.0:{}", config.port);
+    let addr = format!("0.0.0.0:{}", config.auth_port);
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("failed to bind");

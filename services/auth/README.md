@@ -12,7 +12,7 @@ HTTP authentication service. Handles passwordless login via one-time codes, JWT 
 | `WEBAUTHN_RP_ID` | Yes | WebAuthn relying-party ID (e.g. `example.com`) |
 | `WEBAUTHN_ORIGIN` | Yes | WebAuthn relying-party origin URL (e.g. `https://example.com`) |
 | `COOKIE_DOMAIN` | Yes | Cookie domain attribute (root domain, e.g. `example.com`) |
-| `PORT` | No | TCP port to listen on (default: `3112`) |
+| `AUTH_PORT` | No | TCP port to listen on (default: `3112`) |
 
 ## Running migrations
 
