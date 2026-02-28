@@ -1,0 +1,12 @@
+{
+  "service": "auth",
+  "id": "refresh_token_pair_no_auth",
+  "description": "PATCH /auth/token without refresh cookie → 401 Unauthorized",
+  "request": {
+    "method": "PATCH",
+    "path": "/auth/token"
+  },
+  "expect": {
+    "status": 401
+  }
+}

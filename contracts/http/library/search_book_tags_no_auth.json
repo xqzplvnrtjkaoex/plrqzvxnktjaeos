@@ -1,0 +1,12 @@
+{
+  "service": "library",
+  "id": "search_book_tags_no_auth",
+  "description": "GET /books/tags/search without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "GET",
+    "path": "/books/tags/search"
+  },
+  "expect": {
+    "status": 401
+  }
+}

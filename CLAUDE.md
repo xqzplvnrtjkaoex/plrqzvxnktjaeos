@@ -121,12 +121,10 @@ Commit both the `.ts` source and the generated YAML together.
 
 ## 3) Code Conventions
 
-- **Modules**: `snake_case`
-- **Types/Structs**: `PascalCase`
-- **Functions/Methods**: `snake_case`
-- **Constants**: `UPPER_SNAKE_CASE`
-- **Tests**: Inline `#[cfg(test)]` blocks in each module
-- **Async**: Use async I/O wherever the calling context is already async.
+- **Rust edition**: 2024 (`rust-version = "1.85"`)
+
+Before writing code, read `.claude/docs/code-conventions.md` —
+it covers all naming rules, test placement, and async patterns used in this codebase.
 
 ### Service Architecture (Clean Architecture)
 
@@ -476,3 +474,10 @@ Notes:    <anything the Leader should know: edge cases, deferred items, surprise
 
 If `Status: blocked`, the teammate must describe exactly what is unclear or impossible,
 and stop all implementation until the Leader responds.
+
+---
+
+## 19) Performance Tips
+
+Before optimizing hot paths, read `.claude/docs/performance-tips.md` —
+it collects patterns with measured impact specific to this codebase.

@@ -1,0 +1,12 @@
+{
+  "service": "auth",
+  "id": "check_access_token_no_auth",
+  "description": "GET /auth/token without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "GET",
+    "path": "/auth/token"
+  },
+  "expect": {
+    "status": 401
+  }
+}

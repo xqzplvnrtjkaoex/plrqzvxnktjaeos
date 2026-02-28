@@ -1,0 +1,12 @@
+{
+  "service": "library",
+  "id": "get_book_no_auth",
+  "description": "GET /books/1 without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "GET",
+    "path": "/books/1"
+  },
+  "expect": {
+    "status": 401
+  }
+}

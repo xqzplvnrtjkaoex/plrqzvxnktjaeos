@@ -1,0 +1,20 @@
+# SPA routing contract
+#
+# Each non-comment line is an absolute path that nginx must serve index.html for (HTTP 200).
+# Dynamic segments use concrete example values to ensure nginx wildcard rules fire correctly.
+#
+# Source: previous/madome-vue/src/router.ts
+# Verified: createWebHistory() — all paths handled client-side by Vue Router.
+
+/
+/books
+/books/1
+/books/1/reader
+/books/tags/artist/example-artist
+/tastes
+/histories
+/search/books
+/settings
+/profile
+/profile/edit
+/profile/passkey

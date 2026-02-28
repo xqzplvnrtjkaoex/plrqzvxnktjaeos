@@ -1,0 +1,19 @@
+# Cookie contract — dev environment
+#
+# Each non-comment line describes the expected Set-Cookie attributes for one cookie.
+# The token VALUE is non-empty for "set" cookies and empty for "clear" cookies.
+# {ROOT_DOMAIN} is substituted at harness runtime from the ROOT_DOMAIN env var.
+#
+# Canonical order of attributes (matches legacy auth-madome-app SetCookie output):
+#   <name>=<value>; Domain=<root>; Max-Age=<n>; Path=<p>; SameSite=Lax; HttpOnly; Secure
+#
+# Source: previous/auth-madome-app/src/app.rs — set_token_pair / set_empty_token_pair
+# Verified: REFRESH_TOKEN_EXP = 604800 (7 d), ACCESS_TOKEN_EXP = 14400 (4 h, JWT exp only)
+
+# ── Token set (POST /auth/token, PATCH /auth/token) ──────────────────────────
+madome_access_token=<value>; Domain={ROOT_DOMAIN}; Max-Age=604800; Path=/; SameSite=Lax; HttpOnly; Secure
+madome_refresh_token=<value>; Domain={ROOT_DOMAIN}; Max-Age=604800; Path=/auth/token; SameSite=Lax; HttpOnly; Secure
+
+# ── Token clear (DELETE /auth/token) ─────────────────────────────────────────
+madome_access_token=; Domain={ROOT_DOMAIN}; Max-Age=0; Path=/; SameSite=Lax; HttpOnly; Secure
+madome_refresh_token=; Domain={ROOT_DOMAIN}; Max-Age=0; Path=/; SameSite=Lax; HttpOnly; Secure

@@ -1,0 +1,12 @@
+{
+  "service": "auth",
+  "id": "get_passkeys_no_auth",
+  "description": "GET /auth/passkeys without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "GET",
+    "path": "/auth/passkeys"
+  },
+  "expect": {
+    "status": 401
+  }
+}
