@@ -100,6 +100,19 @@ cargo test --workspace --all-features
 
 **TypeScript SPA:** See `apps/*/README.md` (framework TBD; commands added when scaffolded).
 
+**CI workflows (GitHub Actions):**
+
+Workflows are authored in TypeScript and compiled to YAML using
+[gaji](https://github.com/dodok8/gaji). Do **not** hand-edit files under
+`.github/workflows/` — edit the TypeScript source in `workflows/` and run `gaji build`.
+
+```bash
+gaji build        # compile workflows/ → .github/workflows/
+gaji dev --watch  # watch mode during development
+```
+
+Commit both the `.ts` source and the generated YAML together.
+
 **Verification rule:** Whenever claiming that implementation is complete or tests pass, always run both lint and tests and confirm both are clean. Do not skip lint during verification.
 
 ---
@@ -213,6 +226,9 @@ A PR is not "done" until:
 Before writing a plan or opening a PR, read `.claude/docs/pr-guide.md` for the full
 workflow sequence, plan template, PR checklist, work size rules, and interface file list.
 
+For GitHub-specific mechanics (branching strategy, `gh` CLI commands, gaji CI setup,
+review process, and merge strategy), read `.claude/docs/github-workflow.md`.
+
 ---
 
 ## 6) Work Size and Decomposition Rules
@@ -278,14 +294,23 @@ If you suspect one of these traps, stop and revise the plan.
 
 ## 13) Escalation Rules
 
-Escalate to the Leader (via `SendMessage`, see §18.5) immediately if:
+Stop and ask (the user directly, or the Leader via `SendMessage` in team mode) if **any** of the
+following occur — even mid-implementation:
 
-- contract tests disagree with your expectations
-- any required behavior is ambiguous in legacy
-- a requirement conflicts (e.g., schema freeze vs required feature)
-- you need additional permissions
+- Implementation reveals something the plan didn't anticipate: unexpected code structure, missing
+  types, conflicting constraints, or a design assumption that turns out to be wrong.
+- Completing the task as specified would require an unstated behavioral assumption.
+- The code path you're implementing contradicts what the plan described.
+- Something feels off: unexpected complexity, missing context, or a decision that seems wrong.
+- Contract tests disagree with your expectations.
+- Any required behavior is ambiguous in legacy.
+- A requirement conflicts (e.g., schema freeze vs required feature).
+- You need additional permissions.
 
-No silent "best guesses" on contract-sensitive behavior.
+**Do not push through surprises with a best guess.** Stop, describe what you found, and ask.
+The cost of pausing is seconds. The cost of a silent wrong assumption is a PR rollback.
+
+No silent "best guesses" on contract-sensitive or plan-sensitive behavior.
 
 ---
 
