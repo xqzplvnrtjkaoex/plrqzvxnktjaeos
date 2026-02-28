@@ -1,0 +1,19 @@
+[package]
+name = "madome-auth-migration"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "madome_auth_migration"
+path = "src/lib.rs"
+
+[[bin]]
+name = "migration"
+path = "src/main.rs"
+
+[dependencies]
+madome-auth-schema = { path = "../schema" }
+sea-orm-migration = { workspace = true }
+tokio = { workspace = true }
