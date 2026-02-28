@@ -106,11 +106,11 @@ cargo test --workspace --all-features
 
 Workflows are authored in TypeScript and compiled to YAML using
 [gaji](https://github.com/dodok8/gaji). Do **not** hand-edit files under
-`.github/workflows/` — edit the TypeScript source in `workflows/src/` and run from the
+`.github/workflows/` — edit the TypeScript source in `workflows/` and run from the
 project root (no install needed — `npx` fetches gaji on demand):
 
 ```bash
-npx gaji build        # compile workflows/src/ → .github/workflows/
+npx gaji build        # compile workflows/ → .github/workflows/
 npx gaji dev --watch  # watch mode during development
 ```
 
