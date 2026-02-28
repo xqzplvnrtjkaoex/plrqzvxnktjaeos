@@ -1,0 +1,14 @@
+# Cookie contract — prod environment
+#
+# Identical attribute set to dev.txt; only the runtime ROOT_DOMAIN value differs
+# (prod uses the production root domain from k8s SOPS secrets).
+#
+# Source: previous/auth-madome-app/src/app.rs — set_token_pair / set_empty_token_pair
+
+# ── Token set (POST /auth/token, PATCH /auth/token) ──────────────────────────
+madome_access_token=<value>; Domain={ROOT_DOMAIN}; Max-Age=604800; Path=/; SameSite=Lax; HttpOnly; Secure
+madome_refresh_token=<value>; Domain={ROOT_DOMAIN}; Max-Age=604800; Path=/auth/token; SameSite=Lax; HttpOnly; Secure
+
+# ── Token clear (DELETE /auth/token) ─────────────────────────────────────────
+madome_access_token=; Domain={ROOT_DOMAIN}; Max-Age=0; Path=/; SameSite=Lax; HttpOnly; Secure
+madome_refresh_token=; Domain={ROOT_DOMAIN}; Max-Age=0; Path=/; SameSite=Lax; HttpOnly; Secure
