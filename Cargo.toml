@@ -1,0 +1,72 @@
+[workspace]
+members = [
+    "crates/madome-domain",
+    "crates/madome-auth-types",
+    "crates/madome-core",
+    "crates/madome-testing",
+    "packages/proto",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+authors = ["Madome Contributors"]
+
+[workspace.dependencies]
+# async runtime
+tokio = { version = "1.41", features = ["full"] }
+
+# web framework
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["cookie", "typed-header"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["trace", "request-id", "util"] }
+
+# serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+
+# gRPC
+tonic = { version = "0.12" }
+prost = { version = "0.13" }
+
+# database
+sea-orm = { version = "1.1", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+] }
+sea-orm-migration = { version = "1.1" }
+
+# JWT / crypto
+jsonwebtoken = { version = "9.3" }
+
+# identifiers
+uuid = { version = "1.11", features = ["v4", "serde"] }
+
+# error handling
+thiserror = { version = "2.0" }
+anyhow = { version = "1.0" }
+
+# config
+envy = { version = "0.4" }
+
+# tracing / observability
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# time
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# protobuf
+protox = { version = "0.7" }
+
+# misc
+bytes = { version = "1.9" }
+http = { version = "1.2" }
+futures = { version = "0.3" }

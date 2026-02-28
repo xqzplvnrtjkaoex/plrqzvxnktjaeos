@@ -71,6 +71,8 @@ rollback plan rehearsed. See `MIGRATION_PLAN.md` for full phase scope.
 
 **Legacy source**: `previous/` — read-only reference for all Compat behavior. Never modify files under `previous/`.
 
+**`previous/` usage rule**: Read `previous/` only to verify external contracts (API response schemas, cookie attributes, status codes, behavioral rules like renewal call order). The new implementation's internal structure follows the architecture in the active plan — do not mirror or copy legacy internal patterns.
+
 | New service / crate | Legacy source                  |
 | ------------------- | ------------------------------ |
 | `services/auth`     | `previous/auth-madome-app/`    |
@@ -256,6 +258,7 @@ read `.claude/docs/permissions.md` for the minimum-privilege rule and request te
 - Do not introduce tooling that requires privileged execution unless approved in the plan.
 - Do not commit secrets or log sensitive data (tokens, cookies, credentials).
 - Do not paste production data into fixtures.
+- **No actual hostnames in committed files**: Use `{API_HOST}` / `{FILE_HOST}` as placeholders in all docs and code comments. Actual values live only in k8s SOPS secrets and runtime env vars. In doc-test examples use `"example.com"` as a dummy domain.
 - **Secrets must be SOPS+age encrypted** (`k8s/sops/`). Plaintext secrets must never appear in the repo, CI logs, or rendered manifests.
 - **Flux MCP** is permitted for read status / debug / trigger reconcile only. All actual changes must go through Git PRs — no imperative `kubectl apply` or Flux overrides.
 
@@ -321,6 +324,8 @@ No silent "best guesses" on contract-sensitive or plan-sensitive behavior.
 ---
 
 ## 15) Plans
+
+**Active Compat plan**: `.claude/plans/bubbly-puzzling-dewdrop.md` — this plan takes priority over `MIGRATION_PLAN.md` for all implementation decisions during the Compat phase.
 
 When implementing non-trivial features, write a plan document first in `.claude/plans/`.
 

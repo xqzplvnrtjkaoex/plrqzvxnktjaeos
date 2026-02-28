@@ -1,653 +1,705 @@
 # MIGRATION_PLAN.md
 
-**Project:** Madome Monorepo + Gateway Centralization + Phased Migration (Compat → Stabilize → vNext)
-**Org:** `xqzplvnrtjkaoex`
-**Date:** 2026-02-23 (Asia/Seoul)
-**Audience:** Claude Code Team Agents + Reviewers
-**Status:** Execution Plan (authoritative for Compat constraints)
+Madome Monorepo Migration Execution Plan (Compat → Stabilize → vNext)
+Date: 2026-02-25
+Owner: Leader Agent (Claude Code Team Orchestration)
 
 ---
 
-## 0. Non‑Negotiables (Read First)
+## 0) Prime Directive (Non‑Negotiables)
 
-### 0.1 External contract (MUST NOT change)
+### 0.1 External contract is immutable (Compat)
 
-- [ ] **API paths MUST remain identical** (including trailing slashes, case, query semantics).
-- [ ] **Response schema MUST remain identical** (JSON keys, types, enum values, nullability, field order if clients depend on it).
-- [ ] **Status codes MUST remain identical** (including edge cases).
-- [ ] **SPA routing + URL structure MUST remain identical** (no route renames, no base path changes).
-- [ ] **Gateway MUST preserve existing external paths** (strangler routing is allowed, path rewriting is not).
+The legacy system is the **source of truth**. During Compat:
 
-### 0.2 Authentication model (MUST replicate 1:1)
+- **MUST NOT change**
+  - API paths (including prefixes, case, trailing slashes)
+  - Response schemas (keys, types, nullability, enum values)
+  - Status codes (including edge/invalid cases)
+  - SPA routing and URL structure
+- Gateway **MUST keep existing paths** (no rewrites).
+- Gateway **MUST NOT**:
+  - transform response bodies
+  - modify cookies (including `Set-Cookie`)
+  - spoof/forward externally supplied privileged headers
 
-- [ ] **HttpOnly cookie** based session model.
-- [ ] **Access token:** short TTL (existing TTL).
-- [ ] **Refresh token:** long TTL (existing TTL).
-- [ ] **Refresh flow:** access + refresh MUST both be validated before reissuing.
-- [ ] **Cookie attributes MUST be byte‑for‑byte compatible** with legacy per environment:
-  - `Set-Cookie: Domain`
-  - `Path`
-  - `SameSite`
-  - `Secure`
-  - `HttpOnly`
-  - expiration / max‑age semantics
+### 0.2 Auth model is immutable
 
-### 0.3 Infrastructure (MUST)
+- HttpOnly cookie-based auth.
+- Access token: short TTL.
+- Refresh token: long TTL.
+- Refresh: **validate access + refresh together**, then reissue.
+- Cookie attributes MUST match legacy **exactly**:
+  - `Domain`, `Path`, `SameSite`, `Secure`, `HttpOnly`, expiry semantics
 
-- [ ] **Secrets:** SOPS + age (no plaintext secrets in Git).
-- [ ] **Flux MCP:** read / debug / reconcile trigger only.
-- [ ] **All changes MUST be PR-based** (no imperative cluster mutation beyond reconciles).
+### 0.3 GitOps + secrets constraints
 
-### 0.4 Deployment topology (MUST keep host structure)
+- Secrets: **SOPS + age** only.
+- FluxCD remains.
+- Flux MCP permitted actions: **read status / debug / trigger reconcile only**.
+- All changes happen through **Git PRs** only (no imperative apply beyond reconcile triggers).
+
+### 0.4 Deployment topology constraints
 
 **prod**
 
-- [ ] `domain.com` → Web (CloudFront)
-- [ ] `api.domain.com` → Backend
-- [ ] `file.domain.com` → Image host (subdomain preserved)
+- Web: `domain.com` (CloudFront)
+- Backend: `api.domain.com`
+- Images: `file.domain.com` (subdomain preserved)
 
 **dev**
 
-- [ ] Kubernetes deployment (web may be in-cluster).
-- [ ] Dedicated dev domains (not prod domains).
-- [ ] Prefer same host split as prod:
+- Kubernetes deployment (web may be in-cluster).
+- Dev-only domains (isolated from prod).
+- Prefer same host split:
   - `dev-domain.com`
   - `api.dev-domain.com`
   - `file.dev-domain.com`
-- [ ] Web config uses **build-time env injection** (public config only).
+- Frontend config: **build-time env injection** (public config only; not secrets).
 
-### 0.5 Gateway in Compat (guardrails)
+### 0.5 “Zero failing tests” is a hard gate
 
-Gateway MUST:
+Compat requires:
 
-- [ ] Centralize authN/authZ.
-- [ ] **MUST NOT transform response bodies** (no JSON rewrites, no schema changes).
-- [ ] **MUST NOT change paths**.
-- [ ] **MUST NOT modify cookies** (including `Set-Cookie` pass-through).
-- [ ] Block header spoofing:
-  - [ ] remove/overwrite external `x-madome-*` and other reserved headers
-  - [ ] enforce `x-madome-public` (and related forced headers)
-- [ ] Block external routing to internal-only APIs.
-- [ ] Create and propagate `request-id`.
-- [ ] Emit structured logs and baseline metrics.
+- Unit + Integration + E2E-smoke in PR CI
+- **0 failures allowed** (including skipped tests and flakiness)
+- Merge is blocked if any test is failing or skipped
 
-### 0.6 sync (MUST)
+### 0.6 Team workflow hard gate
 
-- [ ] Called from external EC2.
-- [ ] Enforce **IP allowlist + HMAC**.
-- [ ] Separate sync-only endpoints from public API surface.
+In team mode:
+
+- Every agent must produce a **Plan**.
+- **Leader approval is required before implementation. No exceptions.**
+- Large work must be split into small PRs with explicit gates.
 
 ---
 
-## 1. Migration Phases: Goals, Rules, Exit Criteria
+## 1) Objectives and Phase Scope
 
-### 1.1 Phase A — **Compat**
+### 1.1 Phase A — Compat (Reimplement without breaking contract)
 
-**Goal:** Replace implementation while keeping _identical external behavior_. Introduce Gateway while preserving contract.
+**Goal:** Replace implementation while keeping external behavior identical. Introduce Gateway and centralize auth/authorization enforcement **without** modifying cookies or responses.
 
 **Compat deliverables**
 
-- [ ] Monorepo bootstrapped (workspace, tooling, CI).
-- [ ] Gateway deployed in dev, then prod, keeping same public paths.
-- [ ] Service reimplementations (Rust axum) behind Gateway, path-by-path cutover.
-- [ ] Contract tests locked and running in CI (cookie and status-code exactness included).
-- [ ] GitOps in place (Flux + Kustomize). Helm removed from this repo.
+- Monorepo established (workspace, CI gates, repo conventions).
+- Gateway deployed (dev first, then prod) with strict guardrails.
+- Services reimplemented behind Gateway:
+  - users, library, auth, image, sync
+- Outbox + Worker enabled **in Compat** (see §8), using existing schema semantics.
+- Contract tests frozen and enforced:
+  - status codes
+  - response schemas
+  - cookie `Set-Cookie` exactness
+  - SPA routing parity
+- GitOps K8s manifests in place (Flux + Kustomize). Helm removed.
 
-**Compat exit criteria (MUST all be true)**
+**Compat exit criteria (all must be true)**
 
-- [ ] Contract test suite passes against new stack.
-- [ ] Cookie contract tests pass byte-for-byte on `Set-Cookie` (per env).
-- [ ] Gateway guardrails verified (no body transform; no cookie edits; spoofing blocked).
-- [ ] Observability baseline (request-id end-to-end + structured logs + metrics).
-- [ ] Prod cutover completed with rollback plan validated.
+- Contract tests pass against new stack in dev and prod.
+- Cookie contract tests pass byte-for-byte for `Set-Cookie` in each environment.
+- Gateway guardrails verified by tests (no body transform, no cookie edits, spoofing blocked).
+- Observability baseline exists (request-id propagation, structured logs, basic metrics).
+- Rollback plan rehearsed (documented and executable).
 
-### 1.2 Phase B — **Stabilize**
+### 1.2 Phase B — Stabilize (Harden + internal gRPC)
 
-**Goal:** Reduce tech debt and harden operations without breaking Compat contract.
+**Goal:** Improve internal architecture and operations without changing public contract.
 
 **Stabilize deliverables**
 
-- [ ] Internal HTTP APIs removed/isolated.
-- [ ] Internal service-to-service moved to **gRPC**.
-- [ ] Auth logic fully centralized (services stop duplicating auth verification; they trust Gateway identity headers).
-- [ ] Operational hardening: rate limits (if already present), retries, timeouts, circuit breakers.
-- [ ] Outbox + Worker introduced **only if it does not violate “existing schema” constraints** (see §7).
+- Internal HTTP service-to-service APIs removed/isolated.
+- Internal communications migrated to **gRPC** (service mesh not required).
+- Auth fully centralized:
+  - Gateway is the single token verifier
+  - services trust gateway identity headers
+- Operational hardening:
+  - timeouts, retries (bounded), backpressure, rate limits if contract-safe
+- Expand observability (tracing optional) while keeping PII out of logs.
 
 **Stabilize exit criteria**
 
-- [ ] Public contract unchanged and still fully covered by contract tests.
-- [ ] gRPC call graph documented and integration-tested.
-- [ ] Error budgets / SLOs defined with metrics present.
+- Public contract remains unchanged and fully covered by tests.
+- gRPC interfaces versioned and documented; integration tests exist.
+- Error budgets/SLOs defined; key metrics collected.
 
-### 1.3 Phase C — **vNext**
+### 1.3 Phase C — vNext (Additive expansion)
 
-**Goal:** Add new capabilities while keeping Compat endpoints stable.
+**Goal:** Add new features without breaking Compat endpoints.
 
-**vNext principles**
+**vNext rules**
 
-- [ ] New external features MUST be additive (new endpoints / new optional fields only).
-- [ ] Legacy endpoints remain supported with contract tests unchanged.
-- [ ] Any breaking change MUST be introduced as a new versioned surface (e.g., `/v2/...`) and **MUST NOT** alter existing paths.
+- Existing endpoints remain unchanged and contract-tested.
+- New capabilities are **additive** (new endpoints or new optional fields only).
+- Breaking changes require a new versioned surface (e.g., `/v2/...`) and do not alter existing paths.
 
 ---
 
-## 2. Monorepo Directory Layout (Selected)
+## 2) Monorepo Layout (Selected Option + Rationale)
 
-### 2.1 Chosen layout
+### 2.1 Selected top-level structure (normative)
 
-We will use **all** of these top-level directories, with strict meanings:
+We standardize on:
 
 ```text
-apps/       # deployable user-facing apps (SPA, docs site if needed)
-services/   # deployable backend services (Rust axum, workers)
+apps/       # deployable user-facing applications (SPA)
+services/   # deployable backend services (gateway, users, library, auth, image, sync, workers)
 packages/   # shared libraries (Rust crates, TS packages, proto definitions)
-tools/      # codegen, contract test harness, CI helpers, local dev utilities
-k8s/        # GitOps: Flux + Kustomize overlays, SOPS secrets, Husako outputs
+tools/      # codegen, contract harness, CI scripts, migration helpers
+k8s/        # GitOps (Flux + Kustomize overlays), SOPS secrets, Husako assets
+contracts/  # immutable external contract fixtures + golden outputs
 ```
 
-### 2.2 Rationale (why this layout)
+### 2.2 Rationale (why this works in Compat)
 
-- **Clear separation** between deployables (`apps/`, `services/`) and shared code (`packages/`).
-- **Tooling is isolated** in `tools/` so CI and dev flows don’t pollute runtime artifacts.
-- **GitOps and secrets are centralized** in `k8s/` for Flux-driven reconciliation.
-- This layout scales to **Compat → Stabilize → vNext** without reorganizing paths (avoid churn).
+- Minimizes cross-cutting churn: deployables vs shared code are explicit.
+- Keeps non-obvious constraints (contracts, secrets, GitOps) centralized and reviewable.
+- Enables “affected-only” CI by path filtering.
+- Provides a stable structure across Compat → Stabilize → vNext (avoid reorganizing later).
 
-### 2.3 Required repo skeleton (paths are normative)
+### 2.3 Required service placement (normative)
 
 ```text
-.
-├─ Cargo.toml                 # Rust workspace root
-├─ package.json               # JS workspace root (SPA + tooling)
-├─ pnpm-workspace.yaml        # (or yarn workspaces) - pick one and standardize
-├─ .github/workflows/         # CI
-├─ contracts/                 # locked external contract tests + golden data
-│  ├─ http/                   # request/response golden snapshots
-│  ├─ cookies/                # cookie attribute expectations (dev/prod)
-│  └─ openapi/                # baseline public OpenAPI (frozen in Compat)
-├─ apps/
-│  └─ web/                    # SPA
-├─ services/
-│  ├─ gateway/                # reverse proxy + auth centralization
-│  ├─ users/
-│  ├─ library/
-│  ├─ auth/
-│  ├─ image/
-│  └─ sync/
-├─ packages/
-│  ├─ rust/
-│  │  ├─ madome-core/         # shared types, error model, tracing helpers
-│  │  ├─ madome-auth/         # token verify helpers (Compat: dual-use)
-│  │  └─ madome-grpc/         # gRPC client/server utilities (Stabilize)
-│  ├─ ts/
-│  │  ├─ madome-public-config/ # typed build-time config for SPA
-│  │  └─ madome-api-client/    # generated client (optional)
-│  └─ proto/                  # gRPC protos (Stabilize)
-├─ tools/
-│  ├─ contract-tests/         # hurl / k6 / playwright harness
-│  ├─ openapi-aggregate/      # merges service specs -> static artifact
-│  └─ ci/                     # path filters, shared scripts
-└─ k8s/
-   ├─ flux/                   # Flux bootstrap manifests (no secrets)
-   ├─ base/                   # kustomize bases
-   ├─ clusters/
-   │  ├─ dev/
-   │  └─ prod/
-   ├─ sops/                   # encrypted secrets (age)
-   └─ husako/                 # Husako templates and/or generated output
+services/
+  gateway/
+  auth/
+  users/
+  library/
+  image/
+  sync/
+  worker/              # outbox processor(s) (Compat+)
+tools/
+  openapi-aggregate/
+contracts/
+  http/
+  cookies/
+  spa-routing/
+  openapi/
+k8s/
+  flux/
+  base/
+  clusters/dev/
+  clusters/prod/
+  sops/
+  husako/              # introduced after Compat for prod (see §10)
 ```
 
 ---
 
-## 3. Workstreams and Execution Order (with Parallelism)
+## 3) Work Breakdown Strategy (Small PRs, Explicit Gates)
 
-### 3.1 Workstream overview
+### 3.1 Work item flow (Epic → Issue → PR)
 
-**WS0 — Contract capture & locking (starts first)**
+- **Epic**: Phase-level objective (Compat Gateway, Compat Auth, Compat Users, etc.)
+- **Issue**: Small, testable outcome (single route group, single guardrail, single pipeline change)
+- **PR**: Implements exactly one Issue, includes:
+  - Plan link
+  - tests added first (or alongside, with “fails on current” evidence)
+  - docs update when behavior/ops changes
 
-- Establish contract tests and “golden” outputs for:
-  - API status codes and payload schemas
-  - Cookie `Set-Cookie` exact attributes
-  - SPA routing expectations (client-side routes + entrypoint behavior)
+### 3.2 “Plan → Annotate → Revise” loop (mandatory)
 
-**WS1 — Monorepo bootstrap**
+Each Issue must include a Plan that is refined before code changes:
 
-- Workspaces, linting, formatting, shared libs, CI scaffolding.
+1. **Plan (v1)**: assumptions + files to read + tests to add + smallest diff.
+2. **Annotate**: record unknowns discovered while reading code/contracts.
+3. **Revise (v2)**: update plan to remove unknowns and define gates.
+4. **Leader approves** (team mode): implementation begins only after approval.
 
-**WS2 — Gateway (Compat guardrails)**
+### 3.3 PR size limits (enforced socially; optionally via CI)
 
-- Reverse proxy + centralized auth check + spoofing prevention + request-id.
+- One PR should change **one bounded unit**:
+  - one service, or one gateway guardrail, or one CI pipeline rule
+- Avoid “mega PRs” that mix infra + gateway + multiple services.
+- If diff must be large, split into:
+  - preparatory PR (tests + scaffolding)
+  - implementation PR (minimum logic)
+  - cleanup PR (refactor / docs)
 
-**WS3 — Service reimplementations (Compat)**
+### 3.4 Stop conditions
 
-- `users`, `library`, `auth`, `image`, `sync` implemented in Rust axum.
+Implementation must stop (and the plan must be revised) if:
 
-**WS4 — Web app**
-
-- Build-time config injection + routing parity + deploy shape parity.
-
-**WS5 — Infra / GitOps**
-
-- Flux + Kustomize overlays for dev, then prod; SOPS + age integrated.
-- Husako introduced **after Compat** for prod (dev optional).
-
-**WS6 — Data migration**
-
-- Postgres migration via `pg_dump` and restore.
-- Image file migration for prod disk store.
-
-### 3.2 Dependency graph (hard dependencies)
-
-- WS0 → (everything)
-- WS1 → WS2/WS3/WS4/WS5 (workspace conventions)
-- WS2 (Gateway) ↔ WS3 (Services) are iterative, but:
-  - First Gateway skeleton MUST exist before any path cutover.
-- WS5 (Infra) required before dev deployments of WS2/WS3/WS4.
-- WS6 (Migration) starts after service behavior is contract-passing in dev.
-
-### 3.3 Parallelization strategy (optimized for M2 16GB dev laptops)
-
-Run these in parallel immediately after WS0:
-
-- [ ] WS1 Monorepo bootstrap
-- [ ] WS2 Gateway skeleton + tests (unit + integration)
-- [ ] WS4 Web build pipeline (build-time env injection + static hosting shape)
-- [ ] WS5 Dev GitOps scaffolding (Flux + Kustomize + SOPS wiring)
-
-Run WS3 services in parallel **per service**, but only after:
-
-- [ ] shared error/logging primitives exist in `packages/rust/madome-core`
-- [ ] contract tests exist for that service’s routes
-
-Keep local dev lightweight:
-
-- [ ] Prefer `docker compose` for Postgres only.
-- [ ] Avoid running full E2E locally; use PR CI for heavy suites.
-- [ ] Provide `tools/ci` scripts to run _only changed area_ tests.
+- contract tests reveal mismatched status codes or cookies
+- gateway is observed mutating response bodies or `Set-Cookie`
+- flakiness appears in CI (must be treated as failure)
 
 ---
 
-## 4. Gateway Centralization Strategy (Compat → Stabilize)
+## 4) Gateway Centralization (Compat Guardrails + Stabilize Transition)
 
-### 4.1 Gateway architecture (Compat)
+### 4.1 Gateway responsibilities (Compat)
 
-**Gateway = policy enforcement + routing**, not a transformer.
+Gateway is policy + routing, **not** transformation.
 
-Gateway responsibilities:
+MUST:
 
-- **AuthN/AuthZ pre-check** for protected routes.
-- **Header sanitization** to prevent spoofing.
-- **Routing** to legacy or new services without changing external paths.
-- **Request-ID**: generate if missing; propagate to upstream; echo in logs.
-- **Structured logs**: JSON logs with stable keys.
-- **Baseline metrics**: request count, latency, upstream errors by route/service.
+- Centralize authN/authZ checks (fail fast where legacy would fail).
+- Preserve request path and query exactly.
+- Pass response bodies byte-for-byte.
+- Pass `Set-Cookie` byte-for-byte.
+- Block header spoofing.
+- Block routing to internal-only APIs.
+- Generate and propagate `request-id`.
+- Emit structured logs and baseline metrics.
 
-Gateway MUST NOT:
+MUST NOT:
 
-- Modify response bodies.
-- Modify `Set-Cookie` headers.
-- Rewrite paths or query strings.
+- rewrite paths
+- mutate response body
+- mutate cookies
+- accept privileged headers from the outside world
 
-### 4.2 Strangler routing plan (path-by-path cutover)
+### 4.2 Reserved headers and spoofing rules (normative)
 
-- [ ] Start with Gateway in dev routing **100%** to legacy backends.
-- [ ] Introduce **route toggles** (config file in Git) to move a path prefix to a new service.
-- [ ] Cut over one bounded context at a time:
-  1. `auth` endpoints (to validate cookie contract early)
-  2. `users`
-  3. `library`
-  4. `image` (dev stub first, prod disk later)
-  5. `sync` (internal path only)
+Gateway must treat the following as **reserved** and must drop/overwrite any inbound copies:
 
-**Routing config MUST be versioned in Git**, e.g.:
+- `x-madome-*` (entire namespace)
+- `x-request-id` (sanitize; replace if missing/invalid)
+- `x-forwarded-*` (recompute)
+- any “identity” header used between gateway and services
 
-- `services/gateway/config/routes.dev.yaml`
-- `services/gateway/config/routes.prod.yaml`
+Gateway must add/force:
 
-### 4.3 Header spoofing protection (Compat baseline)
+- `x-request-id: <generated>`
+- `x-madome-public: <forced value>` for public routes
+- internal identity headers for upstreams (only after successful auth), e.g.:
+  - `x-madome-auth-sub`
+  - `x-madome-auth-scope`
+  - `x-madome-auth-session`
 
-Define a **reserved header set**; Gateway MUST:
+### 4.3 Routing model (strangler, path-preserving)
 
-- Drop any inbound header matching:
-  - `x-madome-*`
-  - `x-request-id` (sanitize; accept only if valid UUID/ULID, else replace)
-  - `x-forwarded-*` (recompute)
-- Add/force:
-  - `x-request-id: <id>`
-  - `x-madome-public: 1` (or exact expected value) for public routes
-  - `x-madome-auth-sub`, `x-madome-auth-scope`, `x-madome-auth-sid` (internal identity headers)
+- Gateway initially routes 100% of paths to legacy backends.
+- Cutover is done **per path group**, controlled by Git-managed config:
+  - `services/gateway/config/routes.dev.yaml`
+  - `services/gateway/config/routes.prod.yaml`
 
-**Upstreams MUST treat these as authoritative only when**:
+Rules:
 
-- `x-madome-public` is present AND
-- a second internal header is present (e.g., `x-madome-gw: 1`) AND
-- requests originate from the cluster network (enforced via network policy when available)
+- No rewrite: upstream receives the same path.
+- No response transform: gateway is transparent.
+- Each cutover must add/extend contract tests for that path group.
 
-### 4.4 Gateway auth modes (Compat → Stabilize)
+### 4.4 Stabilize transition (single enforcement + gRPC)
 
-**Compat (“dual enforcement”)**
+In Stabilize:
 
-- Gateway validates cookies/tokens and blocks obvious failures early.
-- Upstream services KEEP existing auth logic (transition mode).
+- Services stop verifying tokens directly.
+- Gateway becomes the single token verifier.
+- Services trust gateway identity headers **only** when requests originate from:
+  - cluster network, and/or
+  - a network policy boundary, and/or
+  - a gateway-only shared secret header (internal only)
 
-**Stabilize (“single enforcement”)**
+Internal HTTP is phased out:
 
-- Gateway is the only token verifier.
-- Upstreams trust gateway identity headers and enforce authorization via claims.
-
-### 4.5 Gateway contract tests (required)
-
-- [ ] Body pass-through tests: byte-for-byte equality against golden fixtures for representative endpoints.
-- [ ] Cookie pass-through tests: `Set-Cookie` attributes unchanged.
-- [ ] Spoofing tests: inbound `x-madome-auth-sub` must be dropped and replaced.
-- [ ] Internal route blocking tests: internal endpoints return expected deny behavior (403/404 per policy).
+- Replace service-to-service HTTP calls with gRPC clients.
+- gRPC proto definitions live in `packages/proto/`.
+- gRPC integration tests are required (see §6).
 
 ---
 
-## 5. Cookie/Auth Contract Testing Strategy (TDD + Golden)
+## 5) Testing Strategy (Unit + Integration + E2E, Zero Failures)
 
-This section defines the **non-negotiable** method to prevent accidental contract drift.
+### 5.1 The test pyramid (required)
 
-### 5.1 Source of truth
+- Unit tests: domain logic, parsing, validation, error mapping.
+- Integration tests: DB interactions, outbox semantics, gateway header handling.
+- E2E-smoke tests: critical user flows across gateway + services + SPA.
 
-- The **legacy implementation behavior** is the contract for Compat.
-- Contract tests are stored in Git and run on every PR.
+**All three are required in PR CI.**
 
-### 5.2 Contract artifacts (must live in `contracts/`)
+### 5.2 Contract tests are the “kill switch” for drift
 
-- `contracts/http/**`:
-  - request definitions
-  - golden responses (headers + body) with deterministic fixtures
-- `contracts/cookies/dev.yaml` and `contracts/cookies/prod.yaml`:
-  - explicit `Set-Cookie` strings for access/refresh cookies
-  - NOTE: domain differs per env; everything else must match legacy for that env
+Contracts are stored under `contracts/` and are immutable in Compat unless:
 
-### 5.3 Test harness
+- the legacy behavior was mis-captured, and
+- the fix is validated against legacy and approved
 
-**Required tooling**
+Contract categories:
 
-- [ ] `hurl` for HTTP contract assertions (cookies, headers, bodies).
-- [ ] `playwright` for SPA route compatibility smoke tests.
-- [ ] (Optional) `k6` for lightweight gateway load smoke.
+- `contracts/http/**`: request/response golden assertions (headers + bodies)
+- `contracts/cookies/**`: exact `Set-Cookie` strings for dev/prod
+- `contracts/spa-routing/**`: SPA route parity (playwright)
+- `contracts/openapi/**`: frozen public OpenAPI (Compat)
 
-**Rule:** Every new/ported endpoint MUST add or update a contract test first:
+### 5.3 Cookie contract tests (non-negotiable)
 
-1. Write/adjust test → it fails on new stack.
-2. Implement endpoint → test passes.
+- Assert **full `Set-Cookie` string equality**, including attributes and ordering when relevant.
+- Validate refresh flow behavior: access+refresh must both be present/valid.
 
-### 5.4 One-time capture procedure (how to generate golden responses)
+### 5.4 Gateway guardrail tests (non-negotiable)
 
-This procedure must be run in a controlled environment with a known fixture DB:
+- Body pass-through test: response bytes equal to upstream for representative endpoints.
+- Cookie pass-through test: `Set-Cookie` unchanged.
+- Spoofing tests: inbound `x-madome-auth-sub` must not reach upstream unchanged.
+- Internal route block tests: internal-only endpoints denied as expected.
 
-- [ ] Step 1: Create a deterministic fixture dataset in Postgres.
-- [ ] Step 2: Run the legacy stack against that dataset.
-- [ ] Step 3: Execute `tools/contract-tests/capture.sh`:
-  - sends canonical requests
-  - saves response status, headers, and body under `contracts/http/golden/`
-- [ ] Step 4: Commit the golden artifacts in a PR.
-- [ ] Step 5: CI uses the same fixture dataset and compares new stack output to golden.
+### 5.5 Flake policy
 
-**PII rule:** No production personal data may be stored in golden artifacts.
-
----
-
-## 6. dev Stub Image Strategy (dev-only)
-
-**Goal:** Enable front-end and API flows in dev without relying on prod disk images.
-
-### 6.1 Requirements checklist (must meet)
-
-- [ ] Formats: `avif`, `png`, `jpg`, `webp`
-- [ ] Multiple aspect ratios and resolutions
-- [ ] Deterministic generation based on path + seed
-- [ ] Generate-on-demand + caching
-- [ ] Implement minimal HTTP Range support:
-  - [ ] Accept `Range: bytes=<start>-<end>`
-  - [ ] Return `206 Partial Content` with `Content-Range`
-  - [ ] Return `416` for invalid ranges
-
-### 6.2 Proposed endpoint shape
-
-- Host: `file.dev-domain.com`
-- Path: **MUST match prod external contract** for image URLs (no route changes).
-- Behavior: If requested asset missing, stub server generates and serves a deterministic placeholder.
-
-### 6.3 Implementation notes (Rust)
-
-- Use `image` crate + format encoders (avif may require feature flags / external libs).
-- Deterministic seed:
-  - `seed = sha256(path + ":" + global_salt)`
-- Cache strategy:
-  - local filesystem cache under a writable dir (e.g., `/var/cache/madome-image-stub`)
-  - key = sha256(request_path + accept/format + size params)
-- Range support:
-  - Serve cached bytes; slice range; set `Content-Length` and `Content-Range` correctly.
-
-### 6.4 Compat boundary
-
-- Stub behavior is **dev-only**.
-- Prod image service uses **local disk (3TB)** and does not generate assets.
+- Flaky tests are treated as failing tests.
+- No `@ignore`, no “temporary skip” in PR CI.
+- If a test is flaky, the next PR must:
+  - quarantine via deterministic reproduction (same seed/container)
+  - fix root cause
+  - remove quarantine immediately
 
 ---
 
-## 7. Notifications: DB Outbox + Worker (Minimal Viable Plan)
+## 6) Observability (Logging, Request-ID, Metrics) — No Secrets
 
-**Constraint:** “Existing schema 유지 (Compat 완료 후 개선)” means **Compat must not introduce schema changes** unless the legacy already has the outbox table.
+### 6.1 Request-ID rules
 
-### 7.1 Compat
+- Gateway generates `x-request-id` if missing.
+- Propagate to all services and worker logs.
+- Include request-id in all structured logs for request-scoped events.
 
-- [ ] If legacy already uses an outbox table: replicate table semantics and worker behavior exactly.
-- [ ] If legacy does not: do not introduce new tables in Compat. Stub notifications with no-ops **only if** the external API contract is unaffected.
+### 6.2 Structured logging (normative schema)
 
-### 7.2 Stabilize (introduce outbox if missing; additive)
+All services and gateway must log JSON with stable keys:
 
-**Minimum viable schema (additive)**
+- `timestamp`
+- `level`
+- `service`
+- `env`
+- `request_id`
+- `route`
+- `status`
+- `latency_ms`
+- `error_code` (internal stable code)
+- `msg`
 
-- Table `outbox_events` (or existing name) with:
-  - `id` (PK)
-  - `aggregate_type`, `aggregate_id`
-  - `event_type`
-  - `payload_json`
-  - `idempotency_key`
-  - `status` (`pending|processing|sent|failed`)
-  - timestamps
+### 6.3 Sensitive data rules
 
-**Worker loop**
+MUST NOT log:
 
-- [ ] poll with `FOR UPDATE SKIP LOCKED`
-- [ ] publish to:
-  - FCM (push)
-  - AWS SES (email)
-- [ ] idempotency enforced by `idempotency_key`
-- [ ] retry with bounded backoff and dead-letter semantics (failed status + last_error)
+- access/refresh tokens
+- cookies
+- full request/response bodies unless explicitly redacted and required for debugging
+- secrets from env
 
-**Observability**
+PII must be redacted or excluded (emails/phones/usernames depending on policy).
 
-- [ ] metrics: processed count, failures, retry count, latency
-- [ ] logs: include `event_id`, `event_type`, `request-id` if present
+### 6.4 Baseline metrics (gateway + services)
 
----
+At minimum:
 
-## 8. OpenAPI Aggregation + Static Deployment
-
-**Goal:** Provide a single canonical public OpenAPI artifact while keeping Compat contract frozen.
-
-### 8.1 Source inputs
-
-Each service maintains:
-
-- `services/<svc>/openapi/public.yaml` (public surface only)
-- `services/<svc>/openapi/internal.yaml` (internal-only; NOT externally routed)
-
-### 8.2 Aggregation pipeline
-
-- Tool: `tools/openapi-aggregate`
-- Steps:
-  1. Validate each spec (`spectral` ruleset in repo)
-  2. Merge public specs into `contracts/openapi/public.yaml`
-  3. Emit a static bundle:
-     - `dist/openapi/public.yaml`
-     - `dist/openapi/index.html` (Swagger UI or Redoc)
-
-### 8.3 Deployment strategy
-
-- CI builds the static bundle as an artifact.
-- GitOps deploy option (recommended):
-  - Serve from `domain.com/openapi/` (CloudFront behavior) **only if it does not conflict with SPA routes**.
-  - Otherwise serve from `api.domain.com/openapi/`.
-- Internal-only specs MUST NOT be published on public hosts.
+- request count by route/status
+- latency histogram by route
+- upstream error counts
+- outbox worker: processed/succeeded/failed/retried counts
 
 ---
 
-## 9. GitOps: Flux + Kustomize (No Helm) + Husako Rollout
+## 7) Dev Image Stub Strategy (Deterministic + Cached + Range 206)
 
-### 9.1 Kustomize-first baseline (Compat)
+### 7.1 Contract constraints
 
-- [ ] `k8s/base/*` contains Kustomize bases per app/service.
-- [ ] `k8s/clusters/dev/*` overlays include dev domains, replicas, resource limits.
-- [ ] `k8s/clusters/prod/*` overlays include prod domains and prod resource profiles.
-- [ ] Flux `GitRepository` + `Kustomization` objects in `k8s/flux/`.
+- Image URL paths and host separation must remain consistent with prod.
+- Dev uses a stub server; prod serves from local disk (3TB).
 
-### 9.2 Husako adoption rule (MUST)
+### 7.2 Stub capabilities (Compat minimum)
 
-- **Prod:** Husako is applied **after Compat exit** and only via PRs.
-- **Dev:** Husako use is optional; if used, it MUST still generate Kustomize-consumable output committed in Git.
+- Formats: avif/png/jpg/webp
+- Deterministic generation: based on request path + seed
+- Multiple ratios/resolutions
+- Generate on demand + cache to disk
+- HTTP Range (minimum):
+  - `Range: bytes=start-end` → `206 Partial Content`
+  - invalid ranges → `416`
+- Progressive hardening plan:
+  1. GET + 206 range
+  2. HEAD support
+  3. `Accept-Ranges: bytes`
+  4. correct `Content-Length` and `Content-Range` for all variants
+  5. caching headers parity if legacy specifies
 
-### 9.3 SOPS + age secret strategy
+### 7.3 Deterministic seed (normative)
 
-- [ ] All secrets stored encrypted under `k8s/sops/**`.
-- [ ] Age public keys can be committed; private keys MUST NOT.
-- [ ] Flux decrypts secrets during reconciliation (SOPS integration).
-- [ ] Secret naming conventions:
-  - `madome-<svc>-secrets` per namespace
-- [ ] Rotation procedure documented and executed via PR (update encrypted secret + rotate key outside Git).
-
----
-
-## 10. CI Strategy (Monorepo)
-
-### 10.1 PR checks (fast path)
-
-**Rule:** Only run what changed when feasible.
-
-- [ ] Lint/format (Rust + TS)
-- [ ] Unit tests for changed crates/packages
-- [ ] Contract tests relevant to changed service (hurl subset)
-- [ ] Lightweight E2E smoke (1–3 critical flows)
-
-Implementation approach:
-
-- GitHub Actions `paths-filter` to detect changed areas.
-- `tools/ci/run-affected.sh` to map files → test targets.
-
-### 10.2 main / nightly (heavy path)
-
-- [ ] Full unit test suite
-- [ ] Full contract suite
-- [ ] Full E2E suite
-- [ ] `kind` cluster bring-up + GitOps reconcile + smoke
-- [ ] Optional k6 gateway smoke (short duration)
-
-### 10.3 Local developer constraint (M2 16GB)
-
-- Local default command MUST be lightweight:
-  - `just test` runs unit + small contract subset
-  - heavy suites only in CI by default
+- `seed = SHA256(<normalized_path> + ":" + <global_salt>)`
+- Cache key includes:
+  - path
+  - negotiated format
+  - requested size parameters (if any)
+  - seed salt version
 
 ---
 
-## 11. DB + File Migration Strategy (pg_dump + file copy)
+## 8) Outbox + Worker (Compat: at-least-once + idempotency)
+
+### 8.1 Compat rule (schema preservation)
+
+Compat must implement outbox + worker **using the existing legacy schema and semantics**.
+
+Non-negotiable Compat checklist:
+
+- [ ] Identify legacy outbox table(s) and columns (source of truth: DB + legacy code).
+- [ ] Capture legacy semantics in tests:
+  - when events are written
+  - retry behavior
+  - status transitions
+  - idempotency strategy
+- [ ] Implement worker to match, with at-least-once delivery.
+
+If the legacy system does **not** have an outbox schema:
+
+- Compat is **blocked** until the decision is made.
+- The only acceptable path is an explicit, approved Alternative Proposal (see §14 A1).
+
+### 8.2 Minimum worker semantics (must exist in Compat)
+
+- Delivery guarantee: **at-least-once**
+- Concurrency: safe multi-worker using `FOR UPDATE SKIP LOCKED` (or legacy equivalent)
+- Idempotency:
+  - enforce an idempotency key per event (use legacy key if exists)
+  - downstream (FCM/SES) sends must be deduplicated by that key
+- Retry policy:
+  - bounded exponential backoff
+  - max attempts
+  - final failure state (dead-letter equivalent) with error record
+- Observability:
+  - structured logs with event_id/event_type
+  - metrics for processed/succeeded/failed/retried
+
+---
+
+## 9) OpenAPI: Service Specs + Aggregate Static Deployment
+
+### 9.1 Source layout
+
+Each service owns its specs:
+
+- `services/<svc>/openapi/public.yaml`
+- `services/<svc>/openapi/internal.yaml` (must not be publicly published)
+
+### 9.2 Aggregation pipeline
+
+- Aggregator tool under `tools/openapi-aggregate/`.
+- Output:
+  - `contracts/openapi/public.yaml` (Compat: frozen to legacy behavior)
+  - `dist/openapi/*` (static bundle, e.g., Swagger UI/Redoc)
+
+### 9.3 Publication rules
+
+- Public spec only.
+- Internal spec never exposed on public domains.
+- Location must not break SPA routing:
+  - Prefer `api.domain.com/openapi/` unless confirmed safe under `domain.com`.
+
+---
+
+## 10) K8s / FluxCD / SOPS + Husako Adoption
+
+### 10.1 GitOps baseline (Compat)
+
+- Kustomize-only manifests in repo (`k8s/base`, `k8s/clusters/*`).
+- Flux reconciles from Git.
+- Helm is removed from this repo.
+
+### 10.2 Secrets (SOPS + age)
+
+- Secrets committed only as SOPS-encrypted files under `k8s/sops/`.
+- No plaintext secrets in:
+  - repo
+  - CI logs
+  - rendered manifests committed by accident
+
+### 10.3 Husako adoption timing (hard rule)
+
+- Husako is introduced to **prod only after Compat is complete**.
+- Dev adoption is optional, but must still be PR-based and reproducible.
+
+---
+
+## 11) Data Migration: Postgres + Image Files (Checklist + Rollback)
 
 ### 11.1 Postgres migration (pg_dump)
 
-**Pre-cutover**
+**Preparation**
 
-- [ ] Agree on downtime window and rollback triggers.
-- [ ] Verify target Postgres version compatibility.
-- [ ] Create target DB roles/users matching legacy privileges.
-- [ ] Prepare restore scripts in `tools/db-migrate/`.
+- [ ] Confirm Postgres versions and extensions compatibility.
+- [ ] Prepare deterministic validation queries (row counts, checksums for critical tables).
+- [ ] Document downtime and rollback triggers.
 
-**Cutover procedure**
+**Cutover**
 
-- [ ] Freeze writes (application maintenance mode) OR enforce write block at DB.
-- [ ] Run `pg_dump --format=custom --no-owner --no-privileges` from source.
-- [ ] Transfer dump to target via secure channel.
-- [ ] Restore with `pg_restore --clean --if-exists` as needed.
-- [ ] Run verification checks:
-  - schema checksum (pg_catalog diff)
+- [ ] Freeze writes (maintenance mode or DB-level write block).
+- [ ] `pg_dump` from source with consistent options.
+- [ ] Transfer dump securely.
+- [ ] Restore with `pg_restore` into target.
+- [ ] Run validation checks:
+  - schema diff sanity
   - row counts for critical tables
-  - application health checks
-- [ ] Switch DNS / routing to new backend.
-- [ ] Keep source DB read-only for rollback window.
+  - canary queries for key endpoints
+- [ ] Switch backend traffic.
+- [ ] Keep old DB read-only for rollback window.
 
-### 11.2 File migration (prod image disk)
+**Rollback**
 
-**Goal:** Move 3TB disk-backed image store without breaking URLs.
+- [ ] Repoint traffic to old DB/backend.
+- [ ] Preserve new DB state for forensic analysis.
 
-- [ ] Preserve directory structure and filenames (URLs must remain stable).
-- [ ] Use `rsync -aHAX --numeric-ids` (or equivalent) to copy to new host.
-- [ ] Validate:
-  - file count parity
-  - spot-check hashes
-  - permission parity
-- [ ] Cut over `file.domain.com` to new host (DNS or LB target switch).
-- [ ] Keep old disk available for rollback until confidence threshold met.
+### 11.2 Image file migration (3TB local disk)
 
----
+**Preparation**
 
-## 12. Risk Register (with mitigations)
+- [ ] Confirm target mount paths and permissions.
+- [ ] Pre-sync with rsync (no downtime).
+- [ ] Validate file counts and spot-check hashes.
 
-### 12.1 Highest risks
+**Cutover**
 
-1. **Contract drift (API and cookies)**
-   - Mitigation: locked golden contract tests; cookie string equality tests; PR blocking.
+- [ ] Final rsync pass (minimal delta).
+- [ ] Switch `file.domain.com` target.
+- [ ] Monitor 404/5xx metrics.
 
-2. **Gateway accidentally mutates responses**
-   - Mitigation: gateway pass-through tests + byte comparison for representative payloads.
+**Rollback**
 
-3. **Auth regression during centralization**
-   - Mitigation: dual enforcement in Compat; switch to single enforcement only in Stabilize with staged rollout.
-
-4. **Dev/prod domain differences affecting cookies**
-   - Mitigation: explicit per-env cookie contract files (`contracts/cookies/*.yaml`) and environment-aware tests.
-
-5. **3TB image migration time / integrity**
-   - Mitigation: staged rsync (pre-sync + final sync), checksums, rollback window.
-
-6. **Flux reconciliation drift**
-   - Mitigation: all config in Git; enforce PR review; use Flux diff + reconcile triggers.
+- [ ] Switch DNS/LB back to old image host.
+- [ ] Keep old disk available until confidence threshold met.
 
 ---
 
-## 13. Alternative Proposal (MUST NOT violate Non‑Negotiables)
+## 12) sync External Access (EC2) — IP Allowlist + HMAC
 
-### A1. Gateway implementation choice (proxy engine)
+### 12.1 Surface separation (hard rule)
 
-**Default (in-scope):** Rust (axum) Gateway for maximum control over cookie/header pass-through.
-**Alternative:** Use Envoy as L7 proxy with external auth (ext_authz) service implemented in Rust.
+- Sync endpoints must be on a dedicated path prefix (legacy-defined).
+- Sync endpoints must not be mixed into public OpenAPI.
+- Gateway must block access to sync endpoints for non-allowlisted IPs.
 
-Constraints honored:
+### 12.2 HMAC requirements (minimum)
 
-- No path rewrite.
-- No response body transform.
-- No cookie modifications.
-- Spoofing prevention via header normalization rules.
+HMAC signature should cover at least:
 
-Tradeoffs:
+- timestamp
+- nonce
+- request method + path
+- body hash (or canonical request hash)
 
-- Envoy adds operational complexity but provides mature routing and metrics.
-- Rust-only gateway is simpler but requires careful proxy correctness testing.
+Validation rules:
 
-### A2. Husako unknowns (contingency)
+- Reject stale timestamps.
+- Reject nonce replays (store recent nonces for a window).
+- Use constant-time signature compare.
 
-If Husako adoption is blocked due to missing tool availability or unclear spec:
+---
 
-- Continue Kustomize-only in dev and prod while **keeping the `k8s/husako/` contract**.
-- When Husako becomes available, introduce it via PRs that generate Kustomize-compatible outputs.
+## 13) GitHub Governance Recommendations (Why + What)
 
-This preserves:
+### 13.1 Recommended branch protection (default)
 
-- “no Helm” requirement
-- Flux + Git PR workflow
-- Compat constraints
+For the default branch (e.g., `main`):
+
+- Require PRs (no direct push).
+- Require status checks:
+  - unit
+  - integration
+  - e2e-smoke
+  - lint/format
+- Require code review (at least 1–2 approvals; include CODEOWNERS for interfaces).
+- Block force pushes.
+- Require up-to-date branch before merge.
+- Prefer merge queue (reduces CI race conditions; preserves “tests green at merge”).
+
+**Reason:** Compat is contract-sensitive; governance prevents accidental drift and enforces repeatable gates.
+
+### 13.2 Interface ownership (CODEOWNERS)
+
+Mark these as “interface files” requiring explicit review:
+
+- `contracts/**`
+- `services/gateway/config/**`
+- `services/*/openapi/public.yaml`
+- `packages/proto/**`
+- `k8s/**` (especially `k8s/sops/**`)
+
+---
+
+## 14) Documentation Policy (Definition of Done)
+
+Documentation is not optional.
+
+### 14.1 DoD checklist (must be in every PR)
+
+- [ ] Behavior changes captured in tests (unit/integration/e2e as applicable).
+- [ ] Operational notes updated (runbooks, env vars, deployment notes).
+- [ ] If public surface touched: OpenAPI updated + aggregate pipeline verified.
+- [ ] If infra touched: k8s overlays documented (dev/prod differences).
+
+### 14.2 What not to document
+
+Do not restate what code makes obvious. Document only:
+
+- non-obvious constraints
+- sharp edges/pitfalls
+- gates and how to satisfy them
+- rollback steps
+
+---
+
+## 15) Risk Register and Mitigations
+
+1. **Contract drift (paths/schemas/status codes/cookies)**
+   - Mitigation: golden contract tests + cookie string equality + PR gate
+
+2. **Gateway accidentally mutates responses or cookies**
+   - Mitigation: gateway byte-for-byte pass-through tests + header/cookie assertions
+
+3. **Auth regressions during centralization**
+   - Mitigation: Compat dual enforcement; Stabilize single enforcement via staged rollout + monitoring
+
+4. **Dev/prod cookie attribute mismatch**
+   - Mitigation: per-env cookie contract files; environment-specific CI runs
+
+5. **Outbox semantics mismatch**
+   - Mitigation: capture legacy semantics in integration tests before reimplementation
+
+6. **3TB image migration integrity**
+   - Mitigation: staged rsync + validation + rollback window + monitoring
+
+7. **Flaky CI leading to unsafe merges**
+   - Mitigation: flake policy = failure; quarantine only with deterministic reproduction; remove quickly
+
+---
+
+## 16) Alternative Proposal (Only if constraints conflict)
+
+### A1) If legacy has no outbox schema but Compat requires outbox
+
+**Conflict:** “existing schema 유지” vs “outbox from Compat”.
+
+Proposal (requires explicit approval):
+
+- Introduce a minimal additive outbox table in Compat, behind a feature flag.
+- Keep public API behavior identical (no contract changes).
+- Add strict migration + rollback steps.
+
+Pros:
+
+- Enables required asynchronous processing immediately.
+- Cleaner reliability story.
+
+Cons/Risks:
+
+- Violates “existing schema 유지” policy intent.
+- Requires careful ops review and migration discipline.
+
+Stepwise transition:
+
+1. Add schema + worker in dev only
+2. Validate with integration/e2e
+3. Roll to prod with rollback plan
+4. Freeze schema again until Compat exit
+
+### A2) Gateway engine choice
+
+Default: implement gateway as a controlled reverse proxy with explicit pass-through tests.
+Alternative (requires ops buy-in): adopt a mature proxy with an external auth service.
+
+- Constraints remain: no path rewrite, no body transform, no cookie modification.
+- Requires stronger configuration/testing to guarantee invariants.
 
 ---

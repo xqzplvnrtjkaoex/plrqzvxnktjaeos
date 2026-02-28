@@ -1,0 +1,4 @@
+# gaji generated files
+generated/
+.gaji-cache.json
+gaji.config.local.ts

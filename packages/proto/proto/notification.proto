@@ -1,0 +1,19 @@
+syntax = "proto3";
+package notification;
+
+service NotificationService {
+  rpc CreateNotification(CreateNotificationRequest) returns (Empty);
+}
+
+message CreateNotificationRequest {
+  string user_id = 1;
+  uint32 book_id = 2;
+  repeated BookTag book_tags = 3;
+}
+
+message BookTag {
+  string kind = 1;
+  string name = 2;
+}
+
+message Empty {}
