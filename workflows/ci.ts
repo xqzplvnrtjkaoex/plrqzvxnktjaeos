@@ -1,4 +1,4 @@
-import { getAction, Job, Workflow } from "../generated/index.js";
+import { getAction, Job, Workflow } from "./generated/index.js";
 
 const checkout = getAction("actions/checkout@v5");
 const rustToolchain = getAction("dtolnay/rust-toolchain@stable");
