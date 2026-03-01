@@ -15,7 +15,7 @@ pub async fn create_authcode(
     Json(body): Json<CreateAuthcodeRequest>,
 ) -> Result<StatusCode, AuthServiceError> {
     let usecase = CreateAuthcodeUseCase {
-        users: state.user_repo(),
+        users: state.user_port(),
         auth_codes: state.auth_code_repo(),
     };
     usecase

@@ -40,6 +40,15 @@ impl UserRepository for DbUserRepository {
         Ok(model.map(user_from_model))
     }
 
+    async fn find_by_email(&self, email: &str) -> Result<Option<User>, UsersServiceError> {
+        let model = users::Entity::find()
+            .filter(users::Column::Email.eq(email))
+            .one(&self.db)
+            .await
+            .context("find user by email")?;
+        Ok(model.map(user_from_model))
+    }
+
     async fn create(&self, user: &User) -> Result<(), UsersServiceError> {
         users::ActiveModel {
             id: Set(user.id),

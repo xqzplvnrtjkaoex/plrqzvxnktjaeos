@@ -1,7 +1,7 @@
 use madome_auth::error::AuthServiceError;
 use madome_auth::usecase::authcode::{CreateAuthcodeInput, CreateAuthcodeUseCase};
 
-use crate::helpers::{MockAuthCodeRepo, MockUserRepo, test_user};
+use crate::helpers::{MockAuthCodeRepo, MockUserPort, test_user};
 
 #[tokio::test]
 async fn should_create_authcode_for_known_user() {
@@ -11,7 +11,7 @@ async fn should_create_authcode_for_known_user() {
     let codes_handle = mock_repo.codes_handle();
 
     let usecase = CreateAuthcodeUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         auth_codes: mock_repo,
     };
 
@@ -43,7 +43,7 @@ async fn should_create_authcode_for_known_user() {
 #[tokio::test]
 async fn should_return_not_found_when_user_unknown_for_authcode() {
     let usecase = CreateAuthcodeUseCase {
-        users: MockUserRepo::empty(),
+        users: MockUserPort::empty(),
         auth_codes: MockAuthCodeRepo::empty(),
     };
 
@@ -64,7 +64,7 @@ async fn should_return_too_many_requests_when_active_code_limit_reached() {
     let user = test_user();
 
     let usecase = CreateAuthcodeUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         auth_codes: MockAuthCodeRepo::new(vec![], 5), // at the limit
     };
 
@@ -85,7 +85,7 @@ async fn should_return_too_many_requests_when_active_code_count_exceeds_limit() 
     let user = test_user();
 
     let usecase = CreateAuthcodeUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         auth_codes: MockAuthCodeRepo::new(vec![], 10), // well over limit
     };
 

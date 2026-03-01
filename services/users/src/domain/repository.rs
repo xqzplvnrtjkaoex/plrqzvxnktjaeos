@@ -13,6 +13,7 @@ use crate::error::UsersServiceError;
 /// Repository for user profiles.
 pub trait UserRepository: Send + Sync {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, UsersServiceError>;
+    async fn find_by_email(&self, email: &str) -> Result<Option<User>, UsersServiceError>;
     async fn create(&self, user: &User) -> Result<(), UsersServiceError>;
     async fn update_name_handle(
         &self,

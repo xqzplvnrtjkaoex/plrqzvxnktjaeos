@@ -5,8 +5,8 @@ use uuid::Uuid;
 use crate::domain::types::{AuthCode, AuthUser, OutboxEvent, PasskeyRecord};
 use crate::error::AuthServiceError;
 
-/// Repository for auth-service users (email + role only).
-pub trait UserRepository: Send + Sync {
+/// Port for looking up users via the users service.
+pub trait UserPort: Send + Sync {
     async fn find_by_email(&self, email: &str) -> Result<Option<AuthUser>, AuthServiceError>;
     async fn find_by_id(&self, id: Uuid) -> Result<Option<AuthUser>, AuthServiceError>;
 }

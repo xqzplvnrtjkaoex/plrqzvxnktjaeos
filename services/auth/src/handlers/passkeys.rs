@@ -73,7 +73,7 @@ pub async fn start_registration(
     identity: IdentityHeaders,
 ) -> Result<impl IntoResponse, AuthServiceError> {
     let usecase = StartRegistrationUseCase {
-        users: state.user_repo(),
+        users: state.user_port(),
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),
@@ -126,7 +126,7 @@ pub async fn start_authentication(
     Query(query): Query<StartAuthQuery>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
     let usecase = StartAuthenticationUseCase {
-        users: state.user_repo(),
+        users: state.user_port(),
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),
@@ -158,7 +158,7 @@ pub async fn finish_authentication(
     Json(credential): Json<PublicKeyCredential>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
     let usecase = FinishAuthenticationUseCase {
-        users: state.user_repo(),
+        users: state.user_port(),
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),

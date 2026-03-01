@@ -64,6 +64,27 @@ where
     }
 }
 
+// ── GetUserByEmail ───────────────────────────────────────────────────────────
+
+pub struct GetUserByEmailUseCase<R>
+where
+    R: UserRepository,
+{
+    pub repo: R,
+}
+
+impl<R> GetUserByEmailUseCase<R>
+where
+    R: UserRepository,
+{
+    pub async fn execute(&self, email: &str) -> Result<User, UsersServiceError> {
+        self.repo
+            .find_by_email(email)
+            .await?
+            .ok_or(UsersServiceError::UserNotFound)
+    }
+}
+
 // ── UpdateUser ───────────────────────────────────────────────────────────────
 
 pub struct UpdateUserInput {
@@ -113,6 +134,9 @@ mod tests {
 
     impl UserRepository for MockUserRepo {
         async fn find_by_id(&self, _id: Uuid) -> Result<Option<User>, UsersServiceError> {
+            Ok(self.user.clone())
+        }
+        async fn find_by_email(&self, _email: &str) -> Result<Option<User>, UsersServiceError> {
             Ok(self.user.clone())
         }
         async fn create(&self, _user: &User) -> Result<(), UsersServiceError> {

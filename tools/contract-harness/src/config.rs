@@ -25,6 +25,10 @@ pub struct ContractHarnessConfig {
     /// Cookie domain attribute (`COOKIE_DOMAIN`).
     /// default: `"localhost"`
     pub cookie_domain: String,
+
+    /// Users service gRPC URL (`USERS_GRPC_URL`).
+    /// default: `"http://localhost:50052"`
+    pub users_grpc_url: String,
 }
 
 impl ContractHarnessConfig {
@@ -40,6 +44,8 @@ impl ContractHarnessConfig {
                 .unwrap_or_else(|_| "http://localhost".to_owned()),
             cookie_domain: std::env::var("COOKIE_DOMAIN")
                 .unwrap_or_else(|_| "localhost".to_owned()),
+            users_grpc_url: std::env::var("USERS_GRPC_URL")
+                .unwrap_or_else(|_| "http://localhost:50052".to_owned()),
         }
     }
 }

@@ -4,7 +4,7 @@ use madome_auth::usecase::token::{
     issue_refresh_token, validate_token,
 };
 
-use crate::helpers::{MockAuthCodeRepo, MockUserRepo, TEST_JWT_SECRET, test_auth_code, test_user};
+use crate::helpers::{MockAuthCodeRepo, MockUserPort, TEST_JWT_SECRET, test_auth_code, test_user};
 
 // ── issue_access_token / validate_token ──────────────────────────────────────
 
@@ -64,7 +64,7 @@ async fn should_create_token_pair_with_valid_auth_code() {
     let code_str = code.code.clone();
 
     let usecase = CreateTokenUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         auth_codes: MockAuthCodeRepo::new(vec![code], 1),
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
@@ -101,7 +101,7 @@ async fn should_mark_auth_code_as_used_after_create_token() {
     let codes_handle = mock_repo.codes_handle();
 
     let usecase = CreateTokenUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         auth_codes: mock_repo,
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
@@ -126,7 +126,7 @@ async fn should_mark_auth_code_as_used_after_create_token() {
 #[tokio::test]
 async fn should_return_not_found_when_user_unknown_for_create_token() {
     let usecase = CreateTokenUseCase {
-        users: MockUserRepo::empty(),
+        users: MockUserPort::empty(),
         auth_codes: MockAuthCodeRepo::empty(),
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
@@ -149,7 +149,7 @@ async fn should_return_not_found_when_auth_code_invalid_for_create_token() {
     let user = test_user();
 
     let usecase = CreateTokenUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         auth_codes: MockAuthCodeRepo::empty(), // no codes at all
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
@@ -175,7 +175,7 @@ async fn should_refresh_token_pair_with_valid_refresh_jwt() {
     let refresh = issue_refresh_token(&user, TEST_JWT_SECRET).unwrap();
 
     let usecase = RefreshTokenUseCase {
-        users: MockUserRepo::new(vec![user.clone()]),
+        users: MockUserPort::new(vec![user.clone()]),
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
 
@@ -197,7 +197,7 @@ async fn should_return_unauthorized_when_refresh_jwt_invalid() {
     let user = test_user();
 
     let usecase = RefreshTokenUseCase {
-        users: MockUserRepo::new(vec![user]),
+        users: MockUserPort::new(vec![user]),
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
 
@@ -215,7 +215,7 @@ async fn should_return_unauthorized_when_refresh_jwt_signed_with_wrong_secret() 
     let refresh = issue_refresh_token(&user, "other-secret").unwrap();
 
     let usecase = RefreshTokenUseCase {
-        users: MockUserRepo::new(vec![user]),
+        users: MockUserPort::new(vec![user]),
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
 
@@ -233,7 +233,7 @@ async fn should_return_unauthorized_when_user_deleted_during_refresh() {
     let refresh = issue_refresh_token(&user, TEST_JWT_SECRET).unwrap();
 
     let usecase = RefreshTokenUseCase {
-        users: MockUserRepo::empty(), // user no longer exists
+        users: MockUserPort::empty(), // user no longer exists
         jwt_secret: TEST_JWT_SECRET.to_owned(),
     };
 

@@ -4,7 +4,7 @@ use chrono::Utc;
 use uuid::Uuid;
 use webauthn_rs::prelude::*;
 
-use crate::domain::repository::{PasskeyCache, PasskeyRepository, UserRepository};
+use crate::domain::repository::{PasskeyCache, PasskeyRepository, UserPort};
 use crate::domain::types::PasskeyRecord;
 use crate::error::AuthServiceError;
 use crate::usecase::token::{CreateTokenOutput, issue_access_token, issue_refresh_token};
@@ -75,7 +75,7 @@ pub struct StartRegistrationOutput {
 
 pub struct StartRegistrationUseCase<U, P, C>
 where
-    U: UserRepository,
+    U: UserPort,
     P: PasskeyRepository,
     C: PasskeyCache,
 {
@@ -87,7 +87,7 @@ where
 
 impl<U, P, C> StartRegistrationUseCase<U, P, C>
 where
-    U: UserRepository,
+    U: UserPort,
     P: PasskeyRepository,
     C: PasskeyCache,
 {
@@ -196,7 +196,7 @@ pub struct StartAuthenticationOutput {
 
 pub struct StartAuthenticationUseCase<U, P, C>
 where
-    U: UserRepository,
+    U: UserPort,
     P: PasskeyRepository,
     C: PasskeyCache,
 {
@@ -208,7 +208,7 @@ where
 
 impl<U, P, C> StartAuthenticationUseCase<U, P, C>
 where
-    U: UserRepository,
+    U: UserPort,
     P: PasskeyRepository,
     C: PasskeyCache,
 {
@@ -254,7 +254,7 @@ where
 
 pub struct FinishAuthenticationUseCase<U, P, C>
 where
-    U: UserRepository,
+    U: UserPort,
     P: PasskeyRepository,
     C: PasskeyCache,
 {
@@ -267,7 +267,7 @@ where
 
 impl<U, P, C> FinishAuthenticationUseCase<U, P, C>
 where
-    U: UserRepository,
+    U: UserPort,
     P: PasskeyRepository,
     C: PasskeyCache,
 {

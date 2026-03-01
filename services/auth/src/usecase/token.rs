@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use madome_auth_types::cookie::{ACCESS_TOKEN_EXP, REFRESH_TOKEN_EXP};
 
-use crate::domain::repository::{AuthCodeRepository, UserRepository};
+use crate::domain::repository::{AuthCodeRepository, UserPort};
 use crate::domain::types::AuthUser;
 use crate::error::AuthServiceError;
 
@@ -92,7 +92,7 @@ pub struct CreateTokenOutput {
 
 pub struct CreateTokenUseCase<U, A>
 where
-    U: UserRepository,
+    U: UserPort,
     A: AuthCodeRepository,
 {
     pub users: U,
@@ -102,7 +102,7 @@ where
 
 impl<U, A> CreateTokenUseCase<U, A>
 where
-    U: UserRepository,
+    U: UserPort,
     A: AuthCodeRepository,
 {
     pub async fn execute(
@@ -148,7 +148,7 @@ pub struct RefreshTokenOutput {
 
 pub struct RefreshTokenUseCase<U>
 where
-    U: UserRepository,
+    U: UserPort,
 {
     pub users: U,
     pub jwt_secret: String,
@@ -156,7 +156,7 @@ where
 
 impl<U> RefreshTokenUseCase<U>
 where
-    U: UserRepository,
+    U: UserPort,
 {
     pub async fn execute(
         &self,

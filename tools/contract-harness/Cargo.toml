@@ -14,6 +14,7 @@ auth = [
     "dep:deadpool-redis",
     "dep:webauthn-rs",
     "dep:url",
+    "dep:tonic",
 ]
 users = [
     "dep:madome-users",
@@ -54,6 +55,7 @@ sea-orm-migration     = { workspace = true, optional = true }
 deadpool-redis        = { workspace = true, optional = true }
 webauthn-rs           = { workspace = true, optional = true }
 url                   = { version = "2",    optional = true }
+tonic                 = { workspace = true, optional = true }
 
 # users feature only
 madome-users           = { path = "../../services/users",           optional = true }

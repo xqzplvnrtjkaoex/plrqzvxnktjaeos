@@ -7,8 +7,8 @@ use madome_proto::notification::{
     Empty as NotifEmpty, notification_service_server::NotificationService,
 };
 use madome_proto::user::{
-    BookTagTaste, BookTaste, Empty, GetTastesRequest, GetUserRequest, RenewBookRequest, Taste,
-    TasteList, User, taste::Kind, user_service_server::UserService,
+    BookTagTaste, BookTaste, Empty, GetTastesRequest, GetUserByEmailRequest, GetUserRequest,
+    RenewBookRequest, Taste, TasteList, User, taste::Kind, user_service_server::UserService,
 };
 
 use crate::domain::types::{self as domain, NotificationBook};
@@ -16,7 +16,7 @@ use crate::state::AppState;
 use crate::usecase::notification::CreateNotificationUseCase;
 use crate::usecase::renew_book::RenewBookUseCase;
 use crate::usecase::taste::GetTastesUseCase;
-use crate::usecase::user::GetUserUseCase;
+use crate::usecase::user::{GetUserByEmailUseCase, GetUserUseCase};
 
 #[derive(Clone)]
 pub struct UsersGrpcServer {
@@ -37,6 +37,31 @@ impl UserService for UsersGrpcServer {
         };
         let user = usecase
             .execute(user_id)
+            .await
+            .map_err(|e| Status::not_found(e.to_string()))?;
+
+        Ok(Response::new(User {
+            id: user.id.to_string(),
+            name: user.name,
+            email: user.email,
+            handle: user.handle,
+            role: user.role as u32,
+            created_at: user.created_at.to_rfc3339(),
+            updated_at: user.updated_at.to_rfc3339(),
+        }))
+    }
+
+    async fn get_user_by_email(
+        &self,
+        request: Request<GetUserByEmailRequest>,
+    ) -> Result<Response<User>, Status> {
+        let email = request.into_inner().email;
+
+        let usecase = GetUserByEmailUseCase {
+            repo: self.state.user_repo(),
+        };
+        let user = usecase
+            .execute(&email)
             .await
             .map_err(|e| Status::not_found(e.to_string()))?;
 

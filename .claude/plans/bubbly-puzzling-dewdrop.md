@@ -951,7 +951,7 @@ GitHub Issues are opened at planning time; PRs reference with `closes #N`.
 **Note**: Auth service has **no gRPC server** — gateway validates JWT locally via `validate_access_token()` pure function, no auth gRPC call needed.
 
 **Dev commits:**
-1. `services/auth/schema/` — entity models: users, auth_codes, passkeys
+1. `services/auth/schema/` — entity models: auth_codes, passkeys, outbox_events (no local users table — auth calls users service via gRPC)
 2. `services/auth/migration/` — migration binary
 3. `services/auth/src/domain/` — types + repository traits
 4. `services/auth/src/infra/db.rs`, `cache.rs` (Redis authcodes + passkey sessions)

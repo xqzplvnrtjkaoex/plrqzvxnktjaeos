@@ -25,12 +25,6 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(Passkeys::Table, Passkeys::UserId)
-                            .to(Users::Table, Users::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -61,10 +55,4 @@ enum Passkeys {
     Aaguid,
     Credential,
     CreatedAt,
-}
-
-#[derive(Iden)]
-enum Users {
-    Table,
-    Id,
 }

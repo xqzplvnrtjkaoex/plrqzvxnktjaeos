@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use deadpool_redis::Runtime;
-use madome_auth::{router::build_router, state::AppState};
+use madome_auth::{infra::grpc::GrpcUserPort, router::build_router, state::AppState};
 use madome_auth_migration::Migrator;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
@@ -46,12 +46,17 @@ pub async fn run(
     let port = listener.local_addr()?.port();
     let base_url = format!("http://127.0.0.1:{port}");
 
+    let users_channel = tonic::transport::Channel::from_shared(config.users_grpc_url.clone())
+        .expect("invalid USERS_GRPC_URL")
+        .connect_lazy();
+
     let state = AppState {
         db,
         redis,
         webauthn,
         jwt_secret: config.jwt_secret.clone(),
         cookie_domain: config.cookie_domain.clone(),
+        user_port: GrpcUserPort::new(users_channel),
     };
     tokio::spawn(async move {
         axum::serve(listener, build_router(state)).await.unwrap();

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Minimal user record owned by the auth service (email + role for auth decisions).
+/// Auth-relevant user data fetched from users service (email + role for auth decisions).
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub id: Uuid,

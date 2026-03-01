@@ -5,7 +5,8 @@ use sea_orm::DatabaseConnection;
 use webauthn_rs::Webauthn;
 
 use crate::infra::cache::RedisPasskeyCache;
-use crate::infra::db::{DbAuthCodeRepository, DbPasskeyRepository, DbUserRepository};
+use crate::infra::db::{DbAuthCodeRepository, DbPasskeyRepository};
+use crate::infra::grpc::GrpcUserPort;
 
 /// Shared application state passed to every handler via axum `State`.
 #[derive(Clone)]
@@ -15,13 +16,12 @@ pub struct AppState {
     pub webauthn: Arc<Webauthn>,
     pub jwt_secret: String,
     pub cookie_domain: String,
+    pub user_port: GrpcUserPort,
 }
 
 impl AppState {
-    pub fn user_repo(&self) -> DbUserRepository {
-        DbUserRepository {
-            db: self.db.clone(),
-        }
+    pub fn user_port(&self) -> GrpcUserPort {
+        self.user_port.clone()
     }
 
     pub fn auth_code_repo(&self) -> DbAuthCodeRepository {

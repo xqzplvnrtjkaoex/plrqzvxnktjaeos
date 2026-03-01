@@ -6,45 +6,11 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use madome_auth_schema::{auth_codes, outbox_events, passkeys, users};
+use madome_auth_schema::{auth_codes, outbox_events, passkeys};
 
-use crate::domain::repository::{AuthCodeRepository, PasskeyRepository, UserRepository};
-use crate::domain::types::{AuthCode, AuthUser, OutboxEvent, PasskeyRecord};
+use crate::domain::repository::{AuthCodeRepository, PasskeyRepository};
+use crate::domain::types::{AuthCode, OutboxEvent, PasskeyRecord};
 use crate::error::AuthServiceError;
-
-// ── User repository ──────────────────────────────────────────────────────────
-
-#[derive(Clone)]
-pub struct DbUserRepository {
-    pub db: DatabaseConnection,
-}
-
-impl UserRepository for DbUserRepository {
-    async fn find_by_email(&self, email: &str) -> Result<Option<AuthUser>, AuthServiceError> {
-        let model = users::Entity::find()
-            .filter(users::Column::Email.eq(email))
-            .one(&self.db)
-            .await
-            .context("find user by email")?;
-        Ok(model.map(user_from_model))
-    }
-
-    async fn find_by_id(&self, id: Uuid) -> Result<Option<AuthUser>, AuthServiceError> {
-        let model = users::Entity::find_by_id(id)
-            .one(&self.db)
-            .await
-            .context("find user by id")?;
-        Ok(model.map(user_from_model))
-    }
-}
-
-fn user_from_model(model: users::Model) -> AuthUser {
-    AuthUser {
-        id: model.id,
-        email: model.email,
-        role: model.role as u8,
-    }
-}
 
 // ── AuthCode repository ───────────────────────────────────────────────────────
 

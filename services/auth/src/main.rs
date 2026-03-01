@@ -6,6 +6,7 @@ use url::Url;
 use webauthn_rs::prelude::WebauthnBuilder;
 
 use madome_auth::config::AuthConfig;
+use madome_auth::infra::grpc::GrpcUserPort;
 use madome_auth::router::build_router;
 use madome_auth::state::AppState;
 
@@ -31,12 +32,19 @@ async fn main() {
         .build()
         .expect("failed to build Webauthn");
 
+    let users_channel = tonic::transport::Channel::from_shared(config.users_grpc_url.clone())
+        .expect("invalid USERS_GRPC_URL")
+        .connect()
+        .await
+        .expect("failed to connect to users gRPC");
+
     let state = AppState {
         db,
         redis,
         webauthn: Arc::new(webauthn),
         jwt_secret: config.jwt_secret,
         cookie_domain: config.cookie_domain,
+        user_port: GrpcUserPort::new(users_channel),
     };
 
     let router = build_router(state);

@@ -3,7 +3,7 @@ use rand::RngExt;
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::domain::repository::{AuthCodeRepository, UserRepository};
+use crate::domain::repository::{AuthCodeRepository, UserPort};
 use crate::domain::types::{
     AUTHCODE_LEN, AUTHCODE_TTL_SECS, AuthCode, MAX_ACTIVE_AUTHCODES, OutboxEvent,
 };
@@ -25,7 +25,7 @@ pub struct CreateAuthcodeInput {
 
 pub struct CreateAuthcodeUseCase<U, A>
 where
-    U: UserRepository,
+    U: UserPort,
     A: AuthCodeRepository,
 {
     pub users: U,
@@ -34,7 +34,7 @@ where
 
 impl<U, A> CreateAuthcodeUseCase<U, A>
 where
-    U: UserRepository,
+    U: UserPort,
     A: AuthCodeRepository,
 {
     pub async fn execute(&self, input: CreateAuthcodeInput) -> Result<(), AuthServiceError> {

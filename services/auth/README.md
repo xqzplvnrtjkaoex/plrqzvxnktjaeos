@@ -13,6 +13,7 @@ HTTP authentication service. Handles passwordless login via one-time codes, JWT 
 | `WEBAUTHN_ORIGIN` | Yes | WebAuthn relying-party origin URL (e.g. `https://example.com`) |
 | `COOKIE_DOMAIN` | Yes | Cookie domain attribute (root domain, e.g. `example.com`) |
 | `AUTH_PORT` | No | TCP port to listen on (default: `3112`) |
+| `USERS_GRPC_URL` | Yes | Users service gRPC URL (e.g. `http://users:50051`) |
 
 ## Running migrations
 

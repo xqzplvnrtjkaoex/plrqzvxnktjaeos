@@ -89,7 +89,7 @@ pub async fn create_token(
     Json(body): Json<CreateTokenRequest>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
     let usecase = CreateTokenUseCase {
-        users: state.user_repo(),
+        users: state.user_port(),
         auth_codes: state.auth_code_repo(),
         jwt_secret: state.jwt_secret.clone(),
     };
@@ -123,7 +123,7 @@ pub async fn refresh_token(
         .ok_or(AuthServiceError::InvalidRefreshToken)?;
 
     let usecase = RefreshTokenUseCase {
-        users: state.user_repo(),
+        users: state.user_port(),
         jwt_secret: state.jwt_secret.clone(),
     };
 

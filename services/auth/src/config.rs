@@ -15,6 +15,8 @@ pub struct AuthConfig {
     pub cookie_domain: String,
     /// TCP port to listen on (default 3112). Env var: `AUTH_PORT`.
     pub auth_port: u16,
+    /// Users service gRPC URL (e.g. "http://users:50051"). Env var: `USERS_GRPC_URL`.
+    pub users_grpc_url: String,
 }
 
 impl AuthConfig {
@@ -30,6 +32,7 @@ impl AuthConfig {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(3112),
+            users_grpc_url: std::env::var("USERS_GRPC_URL").expect("USERS_GRPC_URL"),
         }
     }
 }

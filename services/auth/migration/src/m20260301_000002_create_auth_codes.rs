@@ -30,12 +30,6 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(AuthCodes::Table, AuthCodes::UserId)
-                            .to(Users::Table, Users::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -67,10 +61,4 @@ enum AuthCodes {
     ExpiresAt,
     UsedAt,
     CreatedAt,
-}
-
-#[derive(Iden)]
-enum Users {
-    Table,
-    Id,
 }

@@ -3,17 +3,17 @@ use std::sync::{Arc, Mutex};
 use chrono::Utc;
 use uuid::Uuid;
 
-use madome_auth::domain::repository::{AuthCodeRepository, PasskeyRepository, UserRepository};
+use madome_auth::domain::repository::{AuthCodeRepository, PasskeyRepository, UserPort};
 use madome_auth::domain::types::{AuthCode, AuthUser, OutboxEvent, PasskeyRecord};
 use madome_auth::error::AuthServiceError;
 
-// ── MockUserRepo ─────────────────────────────────────────────────────────────
+// ── MockUserPort ─────────────────────────────────────────────────────────────
 
-pub struct MockUserRepo {
+pub struct MockUserPort {
     pub users: Vec<AuthUser>,
 }
 
-impl MockUserRepo {
+impl MockUserPort {
     pub fn new(users: Vec<AuthUser>) -> Self {
         Self { users }
     }
@@ -23,7 +23,7 @@ impl MockUserRepo {
     }
 }
 
-impl UserRepository for MockUserRepo {
+impl UserPort for MockUserPort {
     async fn find_by_email(&self, email: &str) -> Result<Option<AuthUser>, AuthServiceError> {
         Ok(self.users.iter().find(|u| u.email == email).cloned())
     }
