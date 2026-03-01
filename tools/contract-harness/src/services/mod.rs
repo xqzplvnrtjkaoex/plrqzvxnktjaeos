@@ -8,3 +8,6 @@ pub struct InfraUrls {
 
 #[cfg(feature = "auth")]
 pub mod auth;
+
+#[cfg(feature = "users")]
+pub mod users;

@@ -15,6 +15,13 @@ auth = [
     "dep:webauthn-rs",
     "dep:url",
 ]
+users = [
+    "dep:madome-users",
+    "dep:madome-users-migration",
+    "dep:axum",
+    "dep:sea-orm",
+    "dep:sea-orm-migration",
+]
 
 [lib]
 name = "contract_harness"
@@ -47,3 +54,7 @@ sea-orm-migration     = { workspace = true, optional = true }
 deadpool-redis        = { workspace = true, optional = true }
 webauthn-rs           = { workspace = true, optional = true }
 url                   = { version = "2",    optional = true }
+
+# users feature only
+madome-users           = { path = "../../services/users",           optional = true }
+madome-users-migration = { path = "../../services/users/migration", optional = true }

@@ -21,6 +21,17 @@ impl GrpcLibraryClient {
             .context("connect to library gRPC")?;
         Ok(Self { client })
     }
+
+    /// Create a client with lazy connection (connects on first RPC call).
+    /// Useful for tests where the library service may not be running.
+    pub fn lazy(url: &str) -> Self {
+        let channel = Channel::from_shared(url.to_owned())
+            .expect("valid URI")
+            .connect_lazy();
+        Self {
+            client: LibraryServiceClient::new(channel),
+        }
+    }
 }
 
 impl LibraryQueryPort for GrpcLibraryClient {
