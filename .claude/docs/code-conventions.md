@@ -9,6 +9,10 @@
 - **Generic bounds**: Use `where` clauses, not inline bounds.
   Write `impl<R> Foo<R> where R: Trait`, not `impl<R: Trait> Foo<R>`.
   Applies to both `struct` definitions and `impl` blocks.
+- **Struct field access**: When a field name stutters with the variable name
+  (e.g. `page.page`), destructure immediately instead of accessing fields.
+  Write `let PageRequest { per_page, page } = page.clamped();`, not
+  `let page = page.clamped(); ... page.page`.
 - **Naming clarity**: Use full, descriptive names. Do not abbreviate unless the
   abbreviation is universally understood in Rust (`db`, `tx`, `err`, `ctx`, `req`,
   `resp`, `idx`). Single-letter variables are only acceptable as `_` (unused) or

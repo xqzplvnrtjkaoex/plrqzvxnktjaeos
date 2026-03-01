@@ -1,86 +1,69 @@
-# Plan: Add `OrderByRandom` + enforce `where` clause convention
+# Plan: Destructure `PageRequest` after `clamped()` + add convention
 
 ## Context
 
-Two issues:
-
-1. **`Random` sort no-op**: `TasteSortBy::Random` and `HistorySortBy::Random` exist but 3
-   sea-orm query builder branches silently skip ordering (`=> query`). The raw SQL UNION ALL
-   path works correctly. Need an `OrderByRandom` trait (reference: `syrflover/sea-extra`).
-
-2. **Inline generic bounds**: All use case structs and impls use `impl<R: Trait>` instead of
-   `where` clauses. Add convention and refactor all existing occurrences.
+`page.page` and `page.per_page` reads awkwardly. After `let page = page.clamped();`, all
+field access becomes `page.page` — the stuttering name makes code harder to scan. Destructuring
+immediately (`let PageRequest { per_page, page } = page.clamped();`) yields clean `per_page`
+and `page` locals. Add a convention rule and fix all 5 existing occurrences.
 
 ---
 
 ## Changes
 
-### 1. `.claude/docs/code-conventions.md` — add `where` clause rule
+### 1. `.claude/docs/code-conventions.md` — add destructuring rule
 
-Insert after the "Async" bullet (line 8), before "Naming clarity":
+Insert after the "Generic bounds" bullet (line 11), before "Naming clarity":
 
 ```markdown
-- **Generic bounds**: Use `where` clauses, not inline bounds.
-  Write `impl<R> Foo<R> where R: Trait`, not `impl<R: Trait> Foo<R>`.
-  Applies to both `struct` definitions and `impl` blocks.
+- **Struct field access**: When a field name stutters with the variable name
+  (e.g. `page.page`), destructure immediately instead of accessing fields.
+  Write `let PageRequest { per_page, page } = page.clamped();`, not
+  `let page = page.clamped(); ... page.page`.
 ```
 
-### 2. `crates/madome-core` — add `OrderByRandom` trait
+### 2. `services/users/src/infra/db.rs` — destructure in 5 list methods
 
-**`Cargo.toml`** — add:
-```toml
-sea-orm = { workspace = true }
-```
+Each occurrence follows the same mechanical change:
 
-**`src/sea_ext.rs`** — new file:
+**Before:**
 ```rust
-use sea_orm::{
-    sea_query::{Func, SimpleExpr},
-    EntityTrait, Order, QueryOrder, Select,
-};
-
-pub trait OrderByRandom {
-    fn order_by_random(self) -> Self;
-}
-
-impl<E> OrderByRandom for Select<E>
-where
-    E: EntityTrait,
-{
-    fn order_by_random(mut self) -> Self {
-        QueryOrder::query(&mut self)
-            .order_by_expr(SimpleExpr::FunctionCall(Func::random()), Order::Desc);
-        self
-    }
-}
+let page = page.clamped();
+// ... later:
+.offset(((page.page - 1) * page.per_page) as u64)
+.limit(page.per_page as u64)
 ```
 
-**`src/lib.rs`** — add `pub mod sea_ext;`
+**After:**
+```rust
+let PageRequest { per_page, page } = page.clamped();
+// ... later:
+.offset(((page - 1) * per_page) as u64)
+.limit(per_page as u64)
+```
 
-### 3. `services/users/src/infra/db.rs` — fix 3 no-op `Random` arms
+5 occurrences (line numbers approximate):
 
-Add import: `use madome_core::sea_ext::OrderByRandom;`
+| Method | Line | Cast type |
+|--------|------|-----------|
+| `list_all` (raw SQL) | 111 | `as i64` (separate `offset`/`limit` vars) |
+| `list_books` | 190 | `as u64` |
+| `list_book_tags` | 218 | `as u64` |
+| `list` (history) | 408 | `as u64` |
+| `list` (notification) | 511 | `as u64` |
 
-| Line | Before | After |
-|------|--------|-------|
-| 199 | `TasteSortBy::Random => query,` | `TasteSortBy::Random => query.order_by_random(),` |
-| 230 | `TasteSortBy::Random => query,` | `TasteSortBy::Random => query.order_by_random(),` |
-| 423 | `HistorySortBy::Random => query,` | `HistorySortBy::Random => query.order_by_random(),` |
+`list_all` is slightly different — it uses intermediate `offset`/`limit` variables:
+```rust
+// Before:
+let page = page.clamped();
+let offset = ((page.page - 1) * page.per_page) as i64;
+let limit = page.per_page as i64;
 
-### 4. Refactor inline bounds → `where` clauses
-
-All `pub struct Xxx<R: Trait>` and `impl<R: Trait> Xxx<R>` become
-`pub struct Xxx<R> where R: Trait` and `impl<R> Xxx<R> where R: Trait`.
-
-**`services/users/src/usecase/taste.rs`** — 12 structs + 12 impls (24 changes)
-**`services/users/src/usecase/history.rs`** — 4 structs + 4 impls
-**`services/users/src/usecase/user.rs`** — 3 structs + 3 impls
-**`services/users/src/usecase/notification.rs`** — 2 structs + 2 impls
-**`services/users/src/usecase/fcm_token.rs`** — 1 struct + 1 impl
-**`services/users/src/usecase/renew_book.rs`** — 1 struct + 1 impl
-**`services/auth/src/usecase/authcode.rs`** — 1 struct + 1 impl
-**`services/auth/src/usecase/token.rs`** — 2 structs + 2 impls
-**`services/auth/src/usecase/passkey.rs`** — 6 structs + 6 impls
+// After:
+let PageRequest { per_page, page } = page.clamped();
+let offset = ((page - 1) * per_page) as i64;
+let limit = per_page as i64;
+```
 
 ---
 
@@ -88,13 +71,8 @@ All `pub struct Xxx<R: Trait>` and `impl<R: Trait> Xxx<R>` become
 
 | File | Action |
 |------|--------|
-| `.claude/docs/code-conventions.md` | Add `where` clause rule |
-| `crates/madome-core/Cargo.toml` | Add `sea-orm` dep |
-| `crates/madome-core/src/sea_ext.rs` | New — `OrderByRandom` trait |
-| `crates/madome-core/src/lib.rs` | Add `pub mod sea_ext;` |
-| `services/users/src/infra/db.rs` | Import + fix 3 `Random` arms |
-| `services/users/src/usecase/*.rs` | Inline bounds → `where` (23 structs + 23 impls) |
-| `services/auth/src/usecase/*.rs` | Inline bounds → `where` (9 structs + 9 impls) |
+| `.claude/docs/code-conventions.md` | Add destructuring convention |
+| `services/users/src/infra/db.rs` | Destructure `PageRequest` in 5 methods |
 
 ---
 

@@ -108,9 +108,9 @@ impl TasteRepository for DbTasteRepository {
     ) -> Result<Vec<Taste>, UsersServiceError> {
         use sea_orm::{ConnectionTrait, FromQueryResult, Statement};
 
-        let page = page.clamped();
-        let offset = ((page.page - 1) * page.per_page) as i64;
-        let limit = page.per_page as i64;
+        let PageRequest { per_page, page } = page.clamped();
+        let offset = ((page - 1) * per_page) as i64;
+        let limit = per_page as i64;
 
         let sort_clause = match sort_by {
             TasteSortBy::CreatedAt(Sort::Desc) => "created_at DESC",
@@ -187,7 +187,7 @@ impl TasteRepository for DbTasteRepository {
         is_dislike: Option<bool>,
         page: PageRequest,
     ) -> Result<Vec<TasteBook>, UsersServiceError> {
-        let page = page.clamped();
+        let PageRequest { per_page, page } = page.clamped();
         let mut query = taste_books::Entity::find().filter(taste_books::Column::UserId.eq(user_id));
         if let Some(dislike) = is_dislike {
             query = query.filter(taste_books::Column::IsDislike.eq(dislike));
@@ -200,8 +200,8 @@ impl TasteRepository for DbTasteRepository {
             TasteSortBy::Random => query.order_by_random(),
         };
         let models = query
-            .offset(((page.page - 1) * page.per_page) as u64)
-            .limit(page.per_page as u64)
+            .offset(((page - 1) * per_page) as u64)
+            .limit(per_page as u64)
             .all(&self.db)
             .await
             .context("list taste books")?;
@@ -215,7 +215,7 @@ impl TasteRepository for DbTasteRepository {
         is_dislike: Option<bool>,
         page: PageRequest,
     ) -> Result<Vec<TasteBookTag>, UsersServiceError> {
-        let page = page.clamped();
+        let PageRequest { per_page, page } = page.clamped();
         let mut query =
             taste_book_tags::Entity::find().filter(taste_book_tags::Column::UserId.eq(user_id));
         if let Some(dislike) = is_dislike {
@@ -231,8 +231,8 @@ impl TasteRepository for DbTasteRepository {
             TasteSortBy::Random => query.order_by_random(),
         };
         let models = query
-            .offset(((page.page - 1) * page.per_page) as u64)
-            .limit(page.per_page as u64)
+            .offset(((page - 1) * per_page) as u64)
+            .limit(per_page as u64)
             .all(&self.db)
             .await
             .context("list taste book tags")?;
@@ -405,7 +405,7 @@ impl HistoryRepository for DbHistoryRepository {
         sort_by: HistorySortBy,
         page: PageRequest,
     ) -> Result<Vec<HistoryBook>, UsersServiceError> {
-        let page = page.clamped();
+        let PageRequest { per_page, page } = page.clamped();
         let mut query =
             history_books::Entity::find().filter(history_books::Column::UserId.eq(user_id));
         query = match sort_by {
@@ -424,8 +424,8 @@ impl HistoryRepository for DbHistoryRepository {
             HistorySortBy::Random => query.order_by_random(),
         };
         let models = query
-            .offset(((page.page - 1) * page.per_page) as u64)
-            .limit(page.per_page as u64)
+            .offset(((page - 1) * per_page) as u64)
+            .limit(per_page as u64)
             .all(&self.db)
             .await
             .context("list history books")?;
@@ -508,7 +508,7 @@ impl NotificationRepository for DbNotificationRepository {
         sort_by: NotificationSortBy,
         page: PageRequest,
     ) -> Result<Vec<NotificationBook>, UsersServiceError> {
-        let page = page.clamped();
+        let PageRequest { per_page, page } = page.clamped();
         let mut query = notification_books::Entity::find()
             .filter(notification_books::Column::UserId.eq(user_id));
         query = match sort_by {
@@ -520,8 +520,8 @@ impl NotificationRepository for DbNotificationRepository {
             }
         };
         let models = query
-            .offset(((page.page - 1) * page.per_page) as u64)
-            .limit(page.per_page as u64)
+            .offset(((page - 1) * per_page) as u64)
+            .limit(per_page as u64)
             .all(&self.db)
             .await
             .context("list notification books")?;
