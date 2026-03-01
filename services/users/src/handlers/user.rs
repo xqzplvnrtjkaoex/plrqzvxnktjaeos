@@ -31,16 +31,17 @@ pub async fn create_user(
     if role > 1 {
         return Err(UsersServiceError::Forbidden);
     }
-    let uc = CreateUserUseCase {
+    let usecase = CreateUserUseCase {
         repo: state.user_repo(),
     };
-    uc.execute(CreateUserInput {
-        name: body.name,
-        handle: body.handle,
-        email: body.email,
-        role,
-    })
-    .await?;
+    usecase
+        .execute(CreateUserInput {
+            name: body.name,
+            handle: body.handle,
+            email: body.email,
+            role,
+        })
+        .await?;
     Ok(StatusCode::CREATED)
 }
 
@@ -63,10 +64,10 @@ pub async fn get_me(
     identity: IdentityHeaders,
     State(state): State<AppState>,
 ) -> Result<Json<UserResponse>, UsersServiceError> {
-    let uc = GetUserUseCase {
+    let usecase = GetUserUseCase {
         repo: state.user_repo(),
     };
-    let user = uc.execute(identity.user_id).await?;
+    let user = usecase.execute(identity.user_id).await?;
     Ok(Json(UserResponse {
         id: user.id.to_string(),
         name: user.name,
@@ -91,16 +92,17 @@ pub async fn update_me(
     State(state): State<AppState>,
     Json(body): Json<UpdateMeRequest>,
 ) -> Result<StatusCode, UsersServiceError> {
-    let uc = UpdateUserUseCase {
+    let usecase = UpdateUserUseCase {
         repo: state.user_repo(),
     };
-    uc.execute(
-        identity.user_id,
-        UpdateUserInput {
-            name: body.name,
-            handle: body.handle,
-        },
-    )
-    .await?;
+    usecase
+        .execute(
+            identity.user_id,
+            UpdateUserInput {
+                name: body.name,
+                handle: body.handle,
+            },
+        )
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }

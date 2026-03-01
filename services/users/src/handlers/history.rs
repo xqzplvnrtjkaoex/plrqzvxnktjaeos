@@ -51,7 +51,7 @@ pub async fn get_histories(
     let sort_by = query
         .sort_by
         .as_deref()
-        .map(HistorySortBy::from_kebab)
+        .map(HistorySortBy::from_kebab_case)
         .unwrap_or(Some(HistorySortBy::default()))
         .unwrap_or_default();
 
@@ -60,17 +60,17 @@ pub async fn get_histories(
         page: query.page.unwrap_or(1),
     };
 
-    let uc = GetHistoriesUseCase {
+    let usecase = GetHistoriesUseCase {
         repo: state.history_repo(),
     };
-    let histories = uc.execute(identity.user_id, sort_by, page).await?;
+    let histories = usecase.execute(identity.user_id, sort_by, page).await?;
     let items = histories
         .into_iter()
-        .map(|h| HistoryResponse::Book {
-            book_id: h.book_id,
-            page: h.page,
-            created_at: h.created_at,
-            updated_at: h.updated_at,
+        .map(|history| HistoryResponse::Book {
+            book_id: history.book_id,
+            page: history.page,
+            created_at: history.created_at,
+            updated_at: history.updated_at,
         })
         .collect();
     Ok(Json(items))
@@ -86,15 +86,15 @@ pub async fn get_history(
     match kind.as_str() {
         "book" => {
             let book_id: i32 = value.parse().map_err(|_| UsersServiceError::MissingData)?;
-            let uc = GetHistoryUseCase {
+            let usecase = GetHistoryUseCase {
                 repo: state.history_repo(),
             };
-            let h = uc.execute(identity.user_id, book_id).await?;
+            let history = usecase.execute(identity.user_id, book_id).await?;
             Ok(Json(HistoryResponse::Book {
-                book_id: h.book_id,
-                page: h.page,
-                created_at: h.created_at,
-                updated_at: h.updated_at,
+                book_id: history.book_id,
+                page: history.page,
+                created_at: history.created_at,
+                updated_at: history.updated_at,
             }))
         }
         _ => Err(UsersServiceError::MissingData),
@@ -116,17 +116,18 @@ pub async fn create_history(
 ) -> Result<StatusCode, UsersServiceError> {
     match body {
         CreateHistoryRequest::Book { book_id, page } => {
-            let uc = CreateHistoryUseCase {
+            let usecase = CreateHistoryUseCase {
                 repo: state.history_repo(),
             };
-            uc.execute(
-                identity.user_id,
-                CreateHistoryInput {
-                    book_id,
-                    page: page.unwrap_or(1),
-                },
-            )
-            .await?;
+            usecase
+                .execute(
+                    identity.user_id,
+                    CreateHistoryInput {
+                        book_id,
+                        page: page.unwrap_or(1),
+                    },
+                )
+                .await?;
         }
     }
     Ok(StatusCode::CREATED)
@@ -147,10 +148,10 @@ pub async fn delete_history(
 ) -> Result<StatusCode, UsersServiceError> {
     match body {
         DeleteHistoryRequest::Book { book_id } => {
-            let uc = DeleteHistoryUseCase {
+            let usecase = DeleteHistoryUseCase {
                 repo: state.history_repo(),
             };
-            uc.execute(identity.user_id, book_id).await?;
+            usecase.execute(identity.user_id, book_id).await?;
         }
     }
     Ok(StatusCode::NO_CONTENT)

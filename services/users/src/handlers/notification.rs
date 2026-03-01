@@ -49,7 +49,7 @@ pub async fn get_notifications(
     let sort_by = query
         .sort_by
         .as_deref()
-        .map(NotificationSortBy::from_kebab)
+        .map(NotificationSortBy::from_kebab_case)
         .unwrap_or(Some(NotificationSortBy::default()))
         .unwrap_or_default();
 
@@ -58,21 +58,21 @@ pub async fn get_notifications(
         page: query.page.unwrap_or(1),
     };
 
-    let uc = GetNotificationsUseCase {
+    let usecase = GetNotificationsUseCase {
         repo: state.notification_repo(),
     };
-    let notifications = uc.execute(identity.user_id, sort_by, page).await?;
+    let notifications = usecase.execute(identity.user_id, sort_by, page).await?;
     let items = notifications
         .into_iter()
-        .map(|n| NotificationResponse::Book {
-            id: n.id.to_string(),
-            book_id: n.book_id,
-            book_tags: n
+        .map(|notification| NotificationResponse::Book {
+            id: notification.id.to_string(),
+            book_id: notification.book_id,
+            book_tags: notification
                 .book_tags
                 .into_iter()
                 .map(|(kind, name)| NotificationTagResponse { kind, name })
                 .collect(),
-            created_at: n.created_at,
+            created_at: notification.created_at,
         })
         .collect();
     Ok(Json(items))

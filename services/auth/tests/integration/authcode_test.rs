@@ -10,16 +10,17 @@ async fn should_create_authcode_for_known_user() {
     let mock_repo = MockAuthCodeRepo::empty();
     let codes_handle = mock_repo.codes_handle();
 
-    let uc = CreateAuthcodeUseCase {
+    let usecase = CreateAuthcodeUseCase {
         users: MockUserRepo::new(vec![user.clone()]),
         auth_codes: mock_repo,
     };
 
-    uc.execute(CreateAuthcodeInput {
-        email: user.email.clone(),
-    })
-    .await
-    .unwrap();
+    usecase
+        .execute(CreateAuthcodeInput {
+            email: user.email.clone(),
+        })
+        .await
+        .unwrap();
 
     // Verify a code was actually created in the mock.
     let codes = codes_handle.lock().unwrap();
@@ -41,12 +42,12 @@ async fn should_create_authcode_for_known_user() {
 
 #[tokio::test]
 async fn should_return_not_found_when_user_unknown_for_authcode() {
-    let uc = CreateAuthcodeUseCase {
+    let usecase = CreateAuthcodeUseCase {
         users: MockUserRepo::empty(),
         auth_codes: MockAuthCodeRepo::empty(),
     };
 
-    let result = uc
+    let result = usecase
         .execute(CreateAuthcodeInput {
             email: "nobody@example.com".to_owned(),
         })
@@ -62,12 +63,12 @@ async fn should_return_not_found_when_user_unknown_for_authcode() {
 async fn should_return_too_many_requests_when_active_code_limit_reached() {
     let user = test_user();
 
-    let uc = CreateAuthcodeUseCase {
+    let usecase = CreateAuthcodeUseCase {
         users: MockUserRepo::new(vec![user.clone()]),
         auth_codes: MockAuthCodeRepo::new(vec![], 5), // at the limit
     };
 
-    let result = uc
+    let result = usecase
         .execute(CreateAuthcodeInput {
             email: user.email.clone(),
         })
@@ -83,12 +84,12 @@ async fn should_return_too_many_requests_when_active_code_limit_reached() {
 async fn should_return_too_many_requests_when_active_code_count_exceeds_limit() {
     let user = test_user();
 
-    let uc = CreateAuthcodeUseCase {
+    let usecase = CreateAuthcodeUseCase {
         users: MockUserRepo::new(vec![user.clone()]),
         auth_codes: MockAuthCodeRepo::new(vec![], 10), // well over limit
     };
 
-    let result = uc
+    let result = usecase
         .execute(CreateAuthcodeInput {
             email: user.email.clone(),
         })

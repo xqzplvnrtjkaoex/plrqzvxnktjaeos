@@ -123,13 +123,13 @@ mod tests {
 
     #[tokio::test]
     async fn should_create_history() {
-        let uc = CreateHistoryUseCase {
+        let usecase = CreateHistoryUseCase {
             repo: MockHistoryRepo {
                 history: None,
                 delete_returns: false,
             },
         };
-        let result = uc
+        let result = usecase
             .execute(
                 Uuid::now_v7(),
                 CreateHistoryInput {
@@ -143,25 +143,25 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_history_not_found_on_get_missing() {
-        let uc = GetHistoryUseCase {
+        let usecase = GetHistoryUseCase {
             repo: MockHistoryRepo {
                 history: None,
                 delete_returns: false,
             },
         };
-        let result = uc.execute(Uuid::now_v7(), 999).await;
+        let result = usecase.execute(Uuid::now_v7(), 999).await;
         assert!(matches!(result, Err(UsersServiceError::HistoryNotFound)));
     }
 
     #[tokio::test]
     async fn should_return_history_not_found_on_delete_missing() {
-        let uc = DeleteHistoryUseCase {
+        let usecase = DeleteHistoryUseCase {
             repo: MockHistoryRepo {
                 history: None,
                 delete_returns: false,
             },
         };
-        let result = uc.execute(Uuid::now_v7(), 999).await;
+        let result = usecase.execute(Uuid::now_v7(), 999).await;
         assert!(matches!(result, Err(UsersServiceError::HistoryNotFound)));
     }
 }

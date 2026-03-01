@@ -33,8 +33,8 @@ mod tests {
         let port = MockRenewBookPort {
             called: std::sync::Mutex::new(None),
         };
-        let uc = RenewBookUseCase { port };
-        uc.execute(100, 200).await.unwrap();
+        let usecase = RenewBookUseCase { port };
+        usecase.execute(100, 200).await.unwrap();
         // Verify the port was called with correct args
         // (mock captures the call)
     }

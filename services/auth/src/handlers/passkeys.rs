@@ -34,15 +34,15 @@ pub async fn list_passkeys(
     State(state): State<AppState>,
     identity: IdentityHeaders,
 ) -> Result<Json<Vec<PasskeyResponse>>, AuthServiceError> {
-    let uc = ListPasskeysUseCase {
+    let usecase = ListPasskeysUseCase {
         passkeys: state.passkey_repo(),
     };
-    let list = uc.execute(identity.user_id).await?;
+    let list = usecase.execute(identity.user_id).await?;
     let body: Vec<PasskeyResponse> = list
         .into_iter()
-        .map(|p| PasskeyResponse {
-            credential_id: URL_SAFE_NO_PAD.encode(&p.credential_id),
-            created_at: p.created_at,
+        .map(|passkey| PasskeyResponse {
+            credential_id: URL_SAFE_NO_PAD.encode(&passkey.credential_id),
+            created_at: passkey.created_at,
         })
         .collect();
     Ok(Json(body))
@@ -59,10 +59,10 @@ pub async fn delete_passkey(
         .decode(&credential_id_b64)
         .map_err(|_| AuthServiceError::InvalidCredential)?;
 
-    let uc = DeletePasskeyUseCase {
+    let usecase = DeletePasskeyUseCase {
         passkeys: state.passkey_repo(),
     };
-    uc.execute(&credential_id, identity.user_id).await?;
+    usecase.execute(&credential_id, identity.user_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -72,13 +72,13 @@ pub async fn start_registration(
     State(state): State<AppState>,
     identity: IdentityHeaders,
 ) -> Result<impl IntoResponse, AuthServiceError> {
-    let uc = StartRegistrationUseCase {
+    let usecase = StartRegistrationUseCase {
         users: state.user_repo(),
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),
     };
-    let out = uc.execute(identity.user_id).await?;
+    let out = usecase.execute(identity.user_id).await?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -100,15 +100,16 @@ pub struct RegistrationQuery {
 pub async fn finish_registration(
     State(state): State<AppState>,
     identity: IdentityHeaders,
-    Query(q): Query<RegistrationQuery>,
+    Query(query): Query<RegistrationQuery>,
     Json(credential): Json<RegisterPublicKeyCredential>,
 ) -> Result<StatusCode, AuthServiceError> {
-    let uc = FinishRegistrationUseCase {
+    let usecase = FinishRegistrationUseCase {
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),
     };
-    uc.execute(identity.user_id, &q.registration_id, credential)
+    usecase
+        .execute(identity.user_id, &query.registration_id, credential)
         .await?;
     Ok(StatusCode::CREATED)
 }
@@ -122,15 +123,15 @@ pub struct StartAuthQuery {
 
 pub async fn start_authentication(
     State(state): State<AppState>,
-    Query(q): Query<StartAuthQuery>,
+    Query(query): Query<StartAuthQuery>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
-    let uc = StartAuthenticationUseCase {
+    let usecase = StartAuthenticationUseCase {
         users: state.user_repo(),
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),
     };
-    let out = uc.execute(&q.email).await?;
+    let out = usecase.execute(&query.email).await?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -153,18 +154,18 @@ pub struct FinishAuthQuery {
 pub async fn finish_authentication(
     State(state): State<AppState>,
     jar: CookieJar,
-    Query(q): Query<FinishAuthQuery>,
+    Query(query): Query<FinishAuthQuery>,
     Json(credential): Json<PublicKeyCredential>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
-    let uc = FinishAuthenticationUseCase {
+    let usecase = FinishAuthenticationUseCase {
         users: state.user_repo(),
         passkeys: state.passkey_repo(),
         cache: state.passkey_cache(),
         webauthn: state.webauthn.clone(),
         jwt_secret: state.jwt_secret.clone(),
     };
-    let out = uc
-        .execute(&q.email, &q.authentication_id, credential)
+    let out = usecase
+        .execute(&query.email, &query.authentication_id, credential)
         .await?;
 
     let jar = set_access_token_cookie(jar, out.access_token, state.cookie_domain.clone());

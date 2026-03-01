@@ -40,16 +40,16 @@ pub enum TasteResponse {
 impl From<Taste> for TasteResponse {
     fn from(taste: Taste) -> Self {
         match taste {
-            Taste::Book(b) => TasteResponse::Book {
-                book_id: b.book_id,
-                is_dislike: b.is_dislike,
-                created_at: b.created_at,
+            Taste::Book(book) => TasteResponse::Book {
+                book_id: book.book_id,
+                is_dislike: book.is_dislike,
+                created_at: book.created_at,
             },
-            Taste::BookTag(t) => TasteResponse::BookTag {
-                tag_kind: t.tag_kind,
-                tag_name: t.tag_name,
-                is_dislike: t.is_dislike,
-                created_at: t.created_at,
+            Taste::BookTag(tag) => TasteResponse::BookTag {
+                tag_kind: tag.tag_kind,
+                tag_name: tag.tag_name,
+                is_dislike: tag.is_dislike,
+                created_at: tag.created_at,
             },
         }
     }
@@ -88,16 +88,16 @@ pub async fn get_tastes(
 
     // If book-ids[] present, dispatch to GetTastesByBookIds
     if !query.book_ids.is_empty() {
-        let uc = GetTastesByBookIdsUseCase {
+        let usecase = GetTastesByBookIdsUseCase {
             repo: state.taste_repo(),
         };
-        let tastes = uc.execute(identity.user_id, &query.book_ids).await?;
+        let tastes = usecase.execute(identity.user_id, &query.book_ids).await?;
         let items = tastes
             .into_iter()
-            .map(|t| TasteResponse::Book {
-                book_id: t.book_id,
-                is_dislike: t.is_dislike,
-                created_at: t.created_at,
+            .map(|taste| TasteResponse::Book {
+                book_id: taste.book_id,
+                is_dislike: taste.is_dislike,
+                created_at: taste.created_at,
             })
             .collect();
         return Ok(Json(items));
@@ -106,7 +106,7 @@ pub async fn get_tastes(
     let sort_by = query
         .sort_by
         .as_deref()
-        .and_then(TasteSortBy::from_kebab)
+        .and_then(TasteSortBy::from_kebab_case)
         .unwrap_or_default();
 
     let page = madome_domain::pagination::PageRequest {
@@ -119,46 +119,46 @@ pub async fn get_tastes(
     match kind {
         // No kind filter → combined UNION ALL query
         None => {
-            let uc = GetTastesUseCase {
+            let usecase = GetTastesUseCase {
                 repo: state.taste_repo(),
             };
-            let tastes = uc
+            let tastes = usecase
                 .execute(identity.user_id, sort_by, query.is_dislike, page)
                 .await?;
             let items = tastes.into_iter().map(TasteResponse::from).collect();
             Ok(Json(items))
         }
         Some("book") => {
-            let uc = GetTasteBooksUseCase {
+            let usecase = GetTasteBooksUseCase {
                 repo: state.taste_repo(),
             };
-            let tastes = uc
+            let tastes = usecase
                 .execute(identity.user_id, sort_by, query.is_dislike, page)
                 .await?;
             let items = tastes
                 .into_iter()
-                .map(|t| TasteResponse::Book {
-                    book_id: t.book_id,
-                    is_dislike: t.is_dislike,
-                    created_at: t.created_at,
+                .map(|taste| TasteResponse::Book {
+                    book_id: taste.book_id,
+                    is_dislike: taste.is_dislike,
+                    created_at: taste.created_at,
                 })
                 .collect();
             Ok(Json(items))
         }
         Some("book_tag") => {
-            let uc = GetTasteBookTagsUseCase {
+            let usecase = GetTasteBookTagsUseCase {
                 repo: state.taste_repo(),
             };
-            let tastes = uc
+            let tastes = usecase
                 .execute(identity.user_id, sort_by, query.is_dislike, page)
                 .await?;
             let items = tastes
                 .into_iter()
-                .map(|t| TasteResponse::BookTag {
-                    tag_kind: t.tag_kind,
-                    tag_name: t.tag_name,
-                    is_dislike: t.is_dislike,
-                    created_at: t.created_at,
+                .map(|taste| TasteResponse::BookTag {
+                    tag_kind: taste.tag_kind,
+                    tag_name: taste.tag_name,
+                    is_dislike: taste.is_dislike,
+                    created_at: taste.created_at,
                 })
                 .collect();
             Ok(Json(items))
@@ -177,10 +177,10 @@ pub async fn get_taste(
     match kind.as_str() {
         "book" => {
             let book_id: i32 = value.parse().map_err(|_| UsersServiceError::MissingData)?;
-            let uc = GetTasteBookUseCase {
+            let usecase = GetTasteBookUseCase {
                 repo: state.taste_repo(),
             };
-            let taste = uc.execute(identity.user_id, book_id).await?;
+            let taste = usecase.execute(identity.user_id, book_id).await?;
             Ok(Json(TasteResponse::Book {
                 book_id: taste.book_id,
                 is_dislike: taste.is_dislike,
@@ -189,10 +189,12 @@ pub async fn get_taste(
         }
         "book-tag" => {
             let (tag_kind, tag_name) = parse_book_tag_value(&value)?;
-            let uc = GetTasteBookTagUseCase {
+            let usecase = GetTasteBookTagUseCase {
                 repo: state.taste_repo(),
             };
-            let taste = uc.execute(identity.user_id, &tag_kind, &tag_name).await?;
+            let taste = usecase
+                .execute(identity.user_id, &tag_kind, &tag_name)
+                .await?;
             Ok(Json(TasteResponse::BookTag {
                 tag_kind: taste.tag_kind,
                 tag_name: taste.tag_name,
@@ -244,37 +246,39 @@ pub async fn create_taste(
             book_id,
             is_dislike,
         } => {
-            let uc = CreateTasteBookUseCase {
+            let usecase = CreateTasteBookUseCase {
                 repo: state.taste_repo(),
                 library: state.library_client(),
             };
-            uc.execute(
-                identity.user_id,
-                CreateTasteBookInput {
-                    book_id,
-                    is_dislike,
-                },
-            )
-            .await?;
+            usecase
+                .execute(
+                    identity.user_id,
+                    CreateTasteBookInput {
+                        book_id,
+                        is_dislike,
+                    },
+                )
+                .await?;
         }
         CreateTasteRequest::BookTag {
             tag_kind,
             tag_name,
             is_dislike,
         } => {
-            let uc = CreateTasteBookTagUseCase {
+            let usecase = CreateTasteBookTagUseCase {
                 repo: state.taste_repo(),
                 library: state.library_client(),
             };
-            uc.execute(
-                identity.user_id,
-                CreateTasteBookTagInput {
-                    tag_kind,
-                    tag_name,
-                    is_dislike,
-                },
-            )
-            .await?;
+            usecase
+                .execute(
+                    identity.user_id,
+                    CreateTasteBookTagInput {
+                        tag_kind,
+                        tag_name,
+                        is_dislike,
+                    },
+                )
+                .await?;
         }
     }
     Ok(StatusCode::CREATED)
@@ -296,16 +300,18 @@ pub async fn delete_taste(
 ) -> Result<StatusCode, UsersServiceError> {
     match body {
         DeleteTasteRequest::Book { book_id } => {
-            let uc = DeleteTasteBookUseCase {
+            let usecase = DeleteTasteBookUseCase {
                 repo: state.taste_repo(),
             };
-            uc.execute(identity.user_id, book_id).await?;
+            usecase.execute(identity.user_id, book_id).await?;
         }
         DeleteTasteRequest::BookTag { tag_kind, tag_name } => {
-            let uc = DeleteTasteBookTagUseCase {
+            let usecase = DeleteTasteBookTagUseCase {
                 repo: state.taste_repo(),
             };
-            uc.execute(identity.user_id, &tag_kind, &tag_name).await?;
+            usecase
+                .execute(identity.user_id, &tag_kind, &tag_name)
+                .await?;
         }
     }
     Ok(StatusCode::NO_CONTENT)

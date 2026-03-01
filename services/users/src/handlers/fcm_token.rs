@@ -21,16 +21,17 @@ pub async fn create_fcm_token(
     State(state): State<AppState>,
     Json(body): Json<CreateFcmTokenRequest>,
 ) -> Result<StatusCode, UsersServiceError> {
-    let uc = CreateFcmTokenUseCase {
+    let usecase = CreateFcmTokenUseCase {
         repo: state.fcm_token_repo(),
     };
-    uc.execute(
-        identity.user_id,
-        CreateFcmTokenInput {
-            id: body.udid,
-            token: body.fcm_token,
-        },
-    )
-    .await?;
+    usecase
+        .execute(
+            identity.user_id,
+            CreateFcmTokenInput {
+                id: body.udid,
+                token: body.fcm_token,
+            },
+        )
+        .await?;
     Ok(StatusCode::CREATED)
 }

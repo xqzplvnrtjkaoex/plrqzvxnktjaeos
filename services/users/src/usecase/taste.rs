@@ -339,7 +339,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_create_book_taste_when_book_exists() {
-        let uc = CreateTasteBookUseCase {
+        let usecase = CreateTasteBookUseCase {
             repo: MockTasteRepo {
                 taste: None,
                 upsert_returns: true,
@@ -350,7 +350,7 @@ mod tests {
                 has_tag: false,
             },
         };
-        let result = uc
+        let result = usecase
             .execute(
                 Uuid::now_v7(),
                 CreateTasteBookInput {
@@ -364,7 +364,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_book_not_found_when_book_missing() {
-        let uc = CreateTasteBookUseCase {
+        let usecase = CreateTasteBookUseCase {
             repo: MockTasteRepo {
                 taste: None,
                 upsert_returns: true,
@@ -375,7 +375,7 @@ mod tests {
                 has_tag: false,
             },
         };
-        let result = uc
+        let result = usecase
             .execute(
                 Uuid::now_v7(),
                 CreateTasteBookInput {
@@ -389,7 +389,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_taste_already_exists_when_same_is_dislike() {
-        let uc = CreateTasteBookUseCase {
+        let usecase = CreateTasteBookUseCase {
             repo: MockTasteRepo {
                 taste: None,
                 upsert_returns: false, // no change
@@ -400,7 +400,7 @@ mod tests {
                 has_tag: false,
             },
         };
-        let result = uc
+        let result = usecase
             .execute(
                 Uuid::now_v7(),
                 CreateTasteBookInput {
@@ -414,7 +414,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_update_taste_when_different_is_dislike() {
-        let uc = CreateTasteBookUseCase {
+        let usecase = CreateTasteBookUseCase {
             repo: MockTasteRepo {
                 taste: None,
                 upsert_returns: true, // value changed
@@ -425,7 +425,7 @@ mod tests {
                 has_tag: false,
             },
         };
-        let result = uc
+        let result = usecase
             .execute(
                 Uuid::now_v7(),
                 CreateTasteBookInput {
@@ -439,27 +439,27 @@ mod tests {
 
     #[tokio::test]
     async fn should_delete_taste_when_exists() {
-        let uc = DeleteTasteBookUseCase {
+        let usecase = DeleteTasteBookUseCase {
             repo: MockTasteRepo {
                 taste: None,
                 upsert_returns: false,
                 delete_returns: true,
             },
         };
-        let result = uc.execute(Uuid::now_v7(), 1).await;
+        let result = usecase.execute(Uuid::now_v7(), 1).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn should_return_taste_not_found_on_delete_missing() {
-        let uc = DeleteTasteBookUseCase {
+        let usecase = DeleteTasteBookUseCase {
             repo: MockTasteRepo {
                 taste: None,
                 upsert_returns: false,
                 delete_returns: false,
             },
         };
-        let result = uc.execute(Uuid::now_v7(), 999).await;
+        let result = usecase.execute(Uuid::now_v7(), 999).await;
         assert!(matches!(result, Err(UsersServiceError::TasteNotFound)));
     }
 }

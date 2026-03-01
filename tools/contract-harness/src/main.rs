@@ -128,16 +128,16 @@ mod url_mode {
         println!();
 
         let runner = runner::Runner::new(&args.base_url);
-        let mut rep = reporter::Reporter::new();
+        let mut reporter = reporter::Reporter::new();
 
-        for f in &fixtures {
-            let result = runner.run(f).await;
-            rep.record(f, result);
+        for fixture in &fixtures {
+            let result = runner.run(fixture).await;
+            reporter.record(fixture, result);
         }
 
-        rep.print_summary();
+        reporter.print_summary();
 
-        if rep.all_passed() {
+        if reporter.all_passed() {
             Ok(())
         } else {
             std::process::exit(1);

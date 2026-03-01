@@ -119,7 +119,7 @@ impl Default for NotificationSortBy {
 }
 
 impl TasteSortBy {
-    pub fn from_kebab(s: &str) -> Option<Self> {
+    pub fn from_kebab_case(s: &str) -> Option<Self> {
         match s {
             "created-at-desc" => Some(Self::CreatedAt(Sort::Desc)),
             "created-at-asc" => Some(Self::CreatedAt(Sort::Asc)),
@@ -130,7 +130,7 @@ impl TasteSortBy {
 }
 
 impl HistorySortBy {
-    pub fn from_kebab(s: &str) -> Option<Self> {
+    pub fn from_kebab_case(s: &str) -> Option<Self> {
         match s {
             "created-at-desc" => Some(Self::CreatedAt(Sort::Desc)),
             "created-at-asc" => Some(Self::CreatedAt(Sort::Asc)),
@@ -143,7 +143,7 @@ impl HistorySortBy {
 }
 
 impl NotificationSortBy {
-    pub fn from_kebab(s: &str) -> Option<Self> {
+    pub fn from_kebab_case(s: &str) -> Option<Self> {
         match s {
             "created-at-desc" => Some(Self::CreatedAt(Sort::Desc)),
             "created-at-asc" => Some(Self::CreatedAt(Sort::Asc)),
@@ -209,49 +209,49 @@ mod tests {
     }
 
     #[test]
-    fn should_parse_taste_sort_from_kebab() {
+    fn should_parse_taste_sort_from_kebab_case() {
         assert!(matches!(
-            TasteSortBy::from_kebab("created-at-desc"),
+            TasteSortBy::from_kebab_case("created-at-desc"),
             Some(TasteSortBy::CreatedAt(Sort::Desc))
         ));
         assert!(matches!(
-            TasteSortBy::from_kebab("created-at-asc"),
+            TasteSortBy::from_kebab_case("created-at-asc"),
             Some(TasteSortBy::CreatedAt(Sort::Asc))
         ));
         assert!(matches!(
-            TasteSortBy::from_kebab("random"),
+            TasteSortBy::from_kebab_case("random"),
             Some(TasteSortBy::Random)
         ));
-        assert!(TasteSortBy::from_kebab("invalid").is_none());
+        assert!(TasteSortBy::from_kebab_case("invalid").is_none());
     }
 
     #[test]
-    fn should_parse_history_sort_from_kebab() {
+    fn should_parse_history_sort_from_kebab_case() {
         assert!(matches!(
-            HistorySortBy::from_kebab("updated-at-desc"),
+            HistorySortBy::from_kebab_case("updated-at-desc"),
             Some(HistorySortBy::UpdatedAt(Sort::Desc))
         ));
         assert!(matches!(
-            HistorySortBy::from_kebab("created-at-asc"),
+            HistorySortBy::from_kebab_case("created-at-asc"),
             Some(HistorySortBy::CreatedAt(Sort::Asc))
         ));
         assert!(matches!(
-            HistorySortBy::from_kebab("random"),
+            HistorySortBy::from_kebab_case("random"),
             Some(HistorySortBy::Random)
         ));
-        assert!(HistorySortBy::from_kebab("invalid").is_none());
+        assert!(HistorySortBy::from_kebab_case("invalid").is_none());
     }
 
     #[test]
-    fn should_parse_notification_sort_from_kebab() {
+    fn should_parse_notification_sort_from_kebab_case() {
         assert!(matches!(
-            NotificationSortBy::from_kebab("created-at-desc"),
+            NotificationSortBy::from_kebab_case("created-at-desc"),
             Some(NotificationSortBy::CreatedAt(Sort::Desc))
         ));
         assert!(matches!(
-            NotificationSortBy::from_kebab("created-at-asc"),
+            NotificationSortBy::from_kebab_case("created-at-asc"),
             Some(NotificationSortBy::CreatedAt(Sort::Asc))
         ));
-        assert!(NotificationSortBy::from_kebab("random").is_none());
+        assert!(NotificationSortBy::from_kebab_case("random").is_none());
     }
 }

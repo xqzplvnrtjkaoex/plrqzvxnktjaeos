@@ -38,11 +38,11 @@ impl UserRepository for DbUserRepository {
     }
 }
 
-fn user_from_model(m: users::Model) -> AuthUser {
+fn user_from_model(model: users::Model) -> AuthUser {
     AuthUser {
-        id: m.id,
-        email: m.email,
-        role: m.role as u8,
+        id: model.id,
+        email: model.email,
+        role: model.role as u8,
     }
 }
 
@@ -157,14 +157,14 @@ async fn insert_outbox_event(
     Ok(())
 }
 
-fn authcode_from_model(m: auth_codes::Model) -> AuthCode {
+fn authcode_from_model(model: auth_codes::Model) -> AuthCode {
     AuthCode {
-        id: m.id,
-        user_id: m.user_id,
-        code: m.code,
-        expires_at: m.expires_at,
-        used_at: m.used_at,
-        created_at: m.created_at,
+        id: model.id,
+        user_id: model.user_id,
+        code: model.code,
+        expires_at: model.expires_at,
+        used_at: model.used_at,
+        created_at: model.created_at,
     }
 }
 
@@ -237,12 +237,12 @@ impl PasskeyRepository for DbPasskeyRepository {
     }
 }
 
-fn passkey_from_model(m: passkeys::Model) -> PasskeyRecord {
+fn passkey_from_model(model: passkeys::Model) -> PasskeyRecord {
     PasskeyRecord {
-        credential_id: m.credential_id,
-        user_id: m.user_id,
-        aaguid: m.aaguid,
-        credential: m.credential,
-        created_at: m.created_at,
+        credential_id: model.credential_id,
+        user_id: model.user_id,
+        aaguid: model.aaguid,
+        credential: model.credential,
+        created_at: model.created_at,
     }
 }

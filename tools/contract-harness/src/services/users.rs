@@ -35,13 +35,13 @@ pub async fn run(infra: &InfraUrls, workspace_root: &Path) -> Result<bool> {
     // ── Load fixtures and run ──────────────────────────────────────────────
     let fixtures = fixture::load_all(workspace_root, Some("users"))?;
     let runner = Runner::new(&base_url);
-    let mut rep = reporter::Reporter::new();
+    let mut reporter = reporter::Reporter::new();
 
-    for f in &fixtures {
-        let result = runner.run(f).await;
-        rep.record(f, result);
+    for fixture in &fixtures {
+        let result = runner.run(fixture).await;
+        reporter.record(fixture, result);
     }
 
-    rep.print_summary();
-    Ok(rep.all_passed())
+    reporter.print_summary();
+    Ok(reporter.all_passed())
 }

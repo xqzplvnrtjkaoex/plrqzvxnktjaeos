@@ -32,10 +32,10 @@ impl UserService for UsersGrpcServer {
             .parse::<Uuid>()
             .map_err(|_| Status::invalid_argument("invalid user_id"))?;
 
-        let uc = GetUserUseCase {
+        let usecase = GetUserUseCase {
             repo: self.state.user_repo(),
         };
-        let user = uc
+        let user = usecase
             .execute(user_id)
             .await
             .map_err(|e| Status::not_found(e.to_string()))?;
@@ -67,28 +67,28 @@ impl UserService for UsersGrpcServer {
             page: 1,
         };
 
-        let uc = GetTastesUseCase {
+        let usecase = GetTastesUseCase {
             repo: self.state.taste_repo(),
         };
-        let domain_tastes = uc
+        let domain_tastes = usecase
             .execute(user_id, Default::default(), is_dislike, page)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let tastes: Vec<Taste> = domain_tastes
             .into_iter()
-            .map(|t| match t {
-                domain::Taste::Book(b) => Taste {
+            .map(|taste| match taste {
+                domain::Taste::Book(book) => Taste {
                     kind: Some(Kind::Book(BookTaste {
-                        book_id: b.book_id as u32,
-                        is_dislike: b.is_dislike,
+                        book_id: book.book_id as u32,
+                        is_dislike: book.is_dislike,
                     })),
                 },
-                domain::Taste::BookTag(t) => Taste {
+                domain::Taste::BookTag(tag) => Taste {
                     kind: Some(Kind::BookTag(BookTagTaste {
-                        tag_kind: t.tag_kind,
-                        tag_name: t.tag_name,
-                        is_dislike: t.is_dislike,
+                        tag_kind: tag.tag_kind,
+                        tag_name: tag.tag_name,
+                        is_dislike: tag.is_dislike,
                     })),
                 },
             })
@@ -102,10 +102,11 @@ impl UserService for UsersGrpcServer {
         request: Request<RenewBookRequest>,
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
-        let uc = RenewBookUseCase {
+        let usecase = RenewBookUseCase {
             port: self.state.renew_book_port(),
         };
-        uc.execute(req.old_book_id as i32, req.new_book_id as i32)
+        usecase
+            .execute(req.old_book_id as i32, req.new_book_id as i32)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(Empty {}))
@@ -127,7 +128,7 @@ impl NotificationService for UsersGrpcServer {
         let book_tags = req
             .book_tags
             .into_iter()
-            .map(|t| (t.kind, t.name))
+            .map(|tag| (tag.kind, tag.name))
             .collect();
 
         let notification = NotificationBook {
@@ -138,10 +139,11 @@ impl NotificationService for UsersGrpcServer {
             created_at: Utc::now(),
         };
 
-        let uc = CreateNotificationUseCase {
+        let usecase = CreateNotificationUseCase {
             repo: self.state.notification_repo(),
         };
-        uc.execute(notification)
+        usecase
+            .execute(notification)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 

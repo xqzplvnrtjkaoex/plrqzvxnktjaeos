@@ -6,6 +6,11 @@
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Tests**: Inline `#[cfg(test)]` blocks in each module
 - **Async**: Use async I/O wherever the calling context is already async.
+- **Naming clarity**: Use full, descriptive names. Do not abbreviate unless the
+  abbreviation is universally understood in Rust (`db`, `tx`, `err`, `ctx`, `req`,
+  `resp`, `idx`). Single-letter variables are only acceptable as `_` (unused) or
+  `i`/`j` in numeric loops. Closure params in `.map()` / `.filter()` chains must
+  be readable: `|taste|` not `|t|`, `|model|` not `|m|`.
 
 ---
 

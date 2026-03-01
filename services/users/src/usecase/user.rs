@@ -72,8 +72,8 @@ impl<R: UserRepository> UpdateUserUseCase<R> {
         if input.name.is_none() && input.handle.is_none() {
             return Err(UsersServiceError::MissingData);
         }
-        if let Some(ref h) = input.handle {
-            if !validate_handle(h) {
+        if let Some(ref handle) = input.handle {
+            if !validate_handle(handle) {
                 return Err(UsersServiceError::InvalidHandle);
             }
         }
@@ -125,13 +125,13 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_invalid_handle_for_reserved_me() {
-        let uc = CreateUserUseCase {
+        let usecase = CreateUserUseCase {
             repo: MockUserRepo {
                 user: None,
                 create_called: std::sync::Mutex::new(false),
             },
         };
-        let result = uc
+        let result = usecase
             .execute(CreateUserInput {
                 name: "me".into(),
                 handle: "me".into(),
@@ -148,8 +148,8 @@ mod tests {
             user: None,
             create_called: std::sync::Mutex::new(false),
         };
-        let uc = CreateUserUseCase { repo };
-        let result = uc
+        let usecase = CreateUserUseCase { repo };
+        let result = usecase
             .execute(CreateUserInput {
                 name: "alice".into(),
                 handle: "alice-123".into(),
@@ -162,13 +162,13 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_missing_data_when_both_fields_none() {
-        let uc = UpdateUserUseCase {
+        let usecase = UpdateUserUseCase {
             repo: MockUserRepo {
                 user: Some(test_user()),
                 create_called: std::sync::Mutex::new(false),
             },
         };
-        let result = uc
+        let result = usecase
             .execute(
                 Uuid::now_v7(),
                 UpdateUserInput {
@@ -182,13 +182,13 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_user_not_found() {
-        let uc = GetUserUseCase {
+        let usecase = GetUserUseCase {
             repo: MockUserRepo {
                 user: None,
                 create_called: std::sync::Mutex::new(false),
             },
         };
-        let result = uc.execute(Uuid::now_v7()).await;
+        let result = usecase.execute(Uuid::now_v7()).await;
         assert!(matches!(result, Err(UsersServiceError::UserNotFound)));
     }
 }

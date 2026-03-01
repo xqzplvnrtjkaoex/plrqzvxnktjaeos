@@ -46,7 +46,7 @@ pub struct CheckTokenResponse {
 pub async fn check_token(
     State(state): State<AppState>,
     jar: CookieJar,
-    Query(q): Query<CheckTokenQuery>,
+    Query(query): Query<CheckTokenQuery>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
     let token_value = jar
         .get(MADOME_ACCESS_TOKEN)
@@ -56,7 +56,7 @@ pub async fn check_token(
     let info = validate_access_token(&token_value, &state.jwt_secret)
         .map_err(|_| AuthServiceError::InvalidToken)?;
 
-    if let Some(min_role) = q.role {
+    if let Some(min_role) = query.role {
         if info.user_role < min_role {
             return Err(AuthServiceError::InvalidToken);
         }
@@ -88,13 +88,13 @@ pub async fn create_token(
     jar: CookieJar,
     Json(body): Json<CreateTokenRequest>,
 ) -> Result<impl IntoResponse, AuthServiceError> {
-    let uc = CreateTokenUseCase {
+    let usecase = CreateTokenUseCase {
         users: state.user_repo(),
         auth_codes: state.auth_code_repo(),
         jwt_secret: state.jwt_secret.clone(),
     };
 
-    let out = uc
+    let out = usecase
         .execute(CreateTokenInput {
             email: body.email,
             code: body.code,
@@ -122,12 +122,12 @@ pub async fn refresh_token(
         .map(|c| c.value().to_owned())
         .ok_or(AuthServiceError::InvalidRefreshToken)?;
 
-    let uc = RefreshTokenUseCase {
+    let usecase = RefreshTokenUseCase {
         users: state.user_repo(),
         jwt_secret: state.jwt_secret.clone(),
     };
 
-    let out = uc.execute(&refresh_value).await?;
+    let out = usecase.execute(&refresh_value).await?;
 
     let jar = set_access_token_cookie(jar, out.access_token, state.cookie_domain.clone());
     let jar = set_refresh_token_cookie(jar, out.refresh_token, state.cookie_domain.clone());

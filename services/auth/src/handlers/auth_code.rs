@@ -14,11 +14,12 @@ pub async fn create_authcode(
     State(state): State<AppState>,
     Json(body): Json<CreateAuthcodeRequest>,
 ) -> Result<StatusCode, AuthServiceError> {
-    let uc = CreateAuthcodeUseCase {
+    let usecase = CreateAuthcodeUseCase {
         users: state.user_repo(),
         auth_codes: state.auth_code_repo(),
     };
-    uc.execute(CreateAuthcodeInput { email: body.email })
+    usecase
+        .execute(CreateAuthcodeInput { email: body.email })
         .await?;
     Ok(StatusCode::CREATED)
 }

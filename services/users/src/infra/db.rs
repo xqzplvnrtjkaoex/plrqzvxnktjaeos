@@ -64,11 +64,11 @@ impl UserRepository for DbUserRepository {
             id: Set(id),
             ..Default::default()
         };
-        if let Some(n) = name {
-            am.name = Set(n.to_owned());
+        if let Some(new_name) = name {
+            am.name = Set(new_name.to_owned());
         }
-        if let Some(h) = handle {
-            am.handle = Set(h.to_owned());
+        if let Some(new_handle) = handle {
+            am.handle = Set(new_handle.to_owned());
         }
         am.updated_at = Set(Utc::now());
         am.update(&self.db)
@@ -78,15 +78,15 @@ impl UserRepository for DbUserRepository {
     }
 }
 
-fn user_from_model(m: users::Model) -> User {
+fn user_from_model(model: users::Model) -> User {
     User {
-        id: m.id,
-        name: m.name,
-        handle: m.handle,
-        email: m.email,
-        role: m.role as u8,
-        created_at: m.created_at,
-        updated_at: m.updated_at,
+        id: model.id,
+        name: model.name,
+        handle: model.handle,
+        email: model.email,
+        role: model.role as u8,
+        created_at: model.created_at,
+        updated_at: model.updated_at,
     }
 }
 
@@ -157,21 +157,21 @@ impl TasteRepository for DbTasteRepository {
 
         let tastes = rows
             .into_iter()
-            .map(|r| {
-                if let Some(book_id) = r.book_id {
+            .map(|row| {
+                if let Some(book_id) = row.book_id {
                     Taste::Book(TasteBook {
                         user_id,
                         book_id,
-                        is_dislike: r.is_dislike,
-                        created_at: r.created_at,
+                        is_dislike: row.is_dislike,
+                        created_at: row.created_at,
                     })
                 } else {
                     Taste::BookTag(TasteBookTag {
                         user_id,
-                        tag_kind: r.tag_kind.unwrap_or_default(),
-                        tag_name: r.tag_name.unwrap_or_default(),
-                        is_dislike: r.is_dislike,
-                        created_at: r.created_at,
+                        tag_kind: row.tag_kind.unwrap_or_default(),
+                        tag_name: row.tag_name.unwrap_or_default(),
+                        is_dislike: row.is_dislike,
+                        created_at: row.created_at,
                     })
                 }
             })
@@ -187,16 +187,18 @@ impl TasteRepository for DbTasteRepository {
         page: PageRequest,
     ) -> Result<Vec<TasteBook>, UsersServiceError> {
         let page = page.clamped();
-        let mut q = taste_books::Entity::find().filter(taste_books::Column::UserId.eq(user_id));
-        if let Some(d) = is_dislike {
-            q = q.filter(taste_books::Column::IsDislike.eq(d));
+        let mut query = taste_books::Entity::find().filter(taste_books::Column::UserId.eq(user_id));
+        if let Some(dislike) = is_dislike {
+            query = query.filter(taste_books::Column::IsDislike.eq(dislike));
         }
-        q = match sort_by {
-            TasteSortBy::CreatedAt(Sort::Desc) => q.order_by_desc(taste_books::Column::CreatedAt),
-            TasteSortBy::CreatedAt(Sort::Asc) => q.order_by_asc(taste_books::Column::CreatedAt),
-            TasteSortBy::Random => q,
+        query = match sort_by {
+            TasteSortBy::CreatedAt(Sort::Desc) => {
+                query.order_by_desc(taste_books::Column::CreatedAt)
+            }
+            TasteSortBy::CreatedAt(Sort::Asc) => query.order_by_asc(taste_books::Column::CreatedAt),
+            TasteSortBy::Random => query,
         };
-        let models = q
+        let models = query
             .offset(((page.page - 1) * page.per_page) as u64)
             .limit(page.per_page as u64)
             .all(&self.db)
@@ -213,19 +215,21 @@ impl TasteRepository for DbTasteRepository {
         page: PageRequest,
     ) -> Result<Vec<TasteBookTag>, UsersServiceError> {
         let page = page.clamped();
-        let mut q =
+        let mut query =
             taste_book_tags::Entity::find().filter(taste_book_tags::Column::UserId.eq(user_id));
-        if let Some(d) = is_dislike {
-            q = q.filter(taste_book_tags::Column::IsDislike.eq(d));
+        if let Some(dislike) = is_dislike {
+            query = query.filter(taste_book_tags::Column::IsDislike.eq(dislike));
         }
-        q = match sort_by {
+        query = match sort_by {
             TasteSortBy::CreatedAt(Sort::Desc) => {
-                q.order_by_desc(taste_book_tags::Column::CreatedAt)
+                query.order_by_desc(taste_book_tags::Column::CreatedAt)
             }
-            TasteSortBy::CreatedAt(Sort::Asc) => q.order_by_asc(taste_book_tags::Column::CreatedAt),
-            TasteSortBy::Random => q,
+            TasteSortBy::CreatedAt(Sort::Asc) => {
+                query.order_by_asc(taste_book_tags::Column::CreatedAt)
+            }
+            TasteSortBy::Random => query,
         };
-        let models = q
+        let models = query
             .offset(((page.page - 1) * page.per_page) as u64)
             .limit(page.per_page as u64)
             .all(&self.db)
@@ -367,22 +371,22 @@ impl TasteRepository for DbTasteRepository {
     }
 }
 
-fn taste_book_from_model(m: taste_books::Model) -> TasteBook {
+fn taste_book_from_model(model: taste_books::Model) -> TasteBook {
     TasteBook {
-        user_id: m.user_id,
-        book_id: m.book_id,
-        is_dislike: m.is_dislike,
-        created_at: m.created_at,
+        user_id: model.user_id,
+        book_id: model.book_id,
+        is_dislike: model.is_dislike,
+        created_at: model.created_at,
     }
 }
 
-fn taste_book_tag_from_model(m: taste_book_tags::Model) -> TasteBookTag {
+fn taste_book_tag_from_model(model: taste_book_tags::Model) -> TasteBookTag {
     TasteBookTag {
-        user_id: m.user_id,
-        tag_kind: m.tag_kind,
-        tag_name: m.tag_name,
-        is_dislike: m.is_dislike,
-        created_at: m.created_at,
+        user_id: model.user_id,
+        tag_kind: model.tag_kind,
+        tag_name: model.tag_name,
+        is_dislike: model.is_dislike,
+        created_at: model.created_at,
     }
 }
 
@@ -401,19 +405,24 @@ impl HistoryRepository for DbHistoryRepository {
         page: PageRequest,
     ) -> Result<Vec<HistoryBook>, UsersServiceError> {
         let page = page.clamped();
-        let mut q = history_books::Entity::find().filter(history_books::Column::UserId.eq(user_id));
-        q = match sort_by {
+        let mut query =
+            history_books::Entity::find().filter(history_books::Column::UserId.eq(user_id));
+        query = match sort_by {
             HistorySortBy::CreatedAt(Sort::Desc) => {
-                q.order_by_desc(history_books::Column::CreatedAt)
+                query.order_by_desc(history_books::Column::CreatedAt)
             }
-            HistorySortBy::CreatedAt(Sort::Asc) => q.order_by_asc(history_books::Column::CreatedAt),
+            HistorySortBy::CreatedAt(Sort::Asc) => {
+                query.order_by_asc(history_books::Column::CreatedAt)
+            }
             HistorySortBy::UpdatedAt(Sort::Desc) => {
-                q.order_by_desc(history_books::Column::UpdatedAt)
+                query.order_by_desc(history_books::Column::UpdatedAt)
             }
-            HistorySortBy::UpdatedAt(Sort::Asc) => q.order_by_asc(history_books::Column::UpdatedAt),
-            HistorySortBy::Random => q,
+            HistorySortBy::UpdatedAt(Sort::Asc) => {
+                query.order_by_asc(history_books::Column::UpdatedAt)
+            }
+            HistorySortBy::Random => query,
         };
-        let models = q
+        let models = query
             .offset(((page.page - 1) * page.per_page) as u64)
             .limit(page.per_page as u64)
             .all(&self.db)
@@ -474,13 +483,13 @@ impl HistoryRepository for DbHistoryRepository {
     }
 }
 
-fn history_book_from_model(m: history_books::Model) -> HistoryBook {
+fn history_book_from_model(model: history_books::Model) -> HistoryBook {
     HistoryBook {
-        user_id: m.user_id,
-        book_id: m.book_id,
-        page: m.page,
-        created_at: m.created_at,
-        updated_at: m.updated_at,
+        user_id: model.user_id,
+        book_id: model.book_id,
+        page: model.page,
+        created_at: model.created_at,
+        updated_at: model.updated_at,
     }
 }
 
@@ -499,17 +508,17 @@ impl NotificationRepository for DbNotificationRepository {
         page: PageRequest,
     ) -> Result<Vec<NotificationBook>, UsersServiceError> {
         let page = page.clamped();
-        let mut q = notification_books::Entity::find()
+        let mut query = notification_books::Entity::find()
             .filter(notification_books::Column::UserId.eq(user_id));
-        q = match sort_by {
+        query = match sort_by {
             NotificationSortBy::CreatedAt(Sort::Desc) => {
-                q.order_by_desc(notification_books::Column::CreatedAt)
+                query.order_by_desc(notification_books::Column::CreatedAt)
             }
             NotificationSortBy::CreatedAt(Sort::Asc) => {
-                q.order_by_asc(notification_books::Column::CreatedAt)
+                query.order_by_asc(notification_books::Column::CreatedAt)
             }
         };
-        let models = q
+        let models = query
             .offset(((page.page - 1) * page.per_page) as u64)
             .limit(page.per_page as u64)
             .all(&self.db)
@@ -517,19 +526,22 @@ impl NotificationRepository for DbNotificationRepository {
             .context("list notification books")?;
 
         let mut results = Vec::with_capacity(models.len());
-        for m in models {
+        for model in models {
             let tags = notification_book_tags::Entity::find()
-                .filter(notification_book_tags::Column::NotificationBookId.eq(m.id))
+                .filter(notification_book_tags::Column::NotificationBookId.eq(model.id))
                 .all(&self.db)
                 .await
                 .context("list notification book tags")?;
-            let book_tags = tags.into_iter().map(|t| (t.tag_kind, t.tag_name)).collect();
+            let book_tags = tags
+                .into_iter()
+                .map(|tag| (tag.tag_kind, tag.tag_name))
+                .collect();
             results.push(NotificationBook {
-                id: m.id,
-                user_id: m.user_id,
-                book_id: m.book_id,
+                id: model.id,
+                user_id: model.user_id,
+                book_id: model.book_id,
                 book_tags,
-                created_at: m.created_at,
+                created_at: model.created_at,
             });
         }
         Ok(results)
@@ -692,11 +704,11 @@ impl FcmTokenRepository for DbFcmTokenRepository {
     }
 }
 
-fn fcm_token_from_model(m: fcm_tokens::Model) -> FcmToken {
+fn fcm_token_from_model(model: fcm_tokens::Model) -> FcmToken {
     FcmToken {
-        id: m.id,
-        user_id: m.user_id,
-        token: m.token,
-        updated_at: m.updated_at,
+        id: model.id,
+        user_id: model.user_id,
+        token: model.token,
+        updated_at: model.updated_at,
     }
 }
