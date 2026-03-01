@@ -1,0 +1,12 @@
+{
+  "service": "users",
+  "id": "delete_taste_no_auth",
+  "description": "DELETE /users/@me/tastes without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "DELETE",
+    "path": "/users/@me/tastes"
+  },
+  "expect": {
+    "status": 401
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "service": "users",
+  "id": "create_taste_no_auth",
+  "description": "POST /users/@me/tastes without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "POST",
+    "path": "/users/@me/tastes"
+  },
+  "expect": {
+    "status": 401
+  }
+}

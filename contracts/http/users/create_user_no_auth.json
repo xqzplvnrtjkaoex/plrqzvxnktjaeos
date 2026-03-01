@@ -1,0 +1,12 @@
+{
+  "service": "users",
+  "id": "create_user_no_auth",
+  "description": "POST /users without auth cookie → 401 Unauthorized",
+  "request": {
+    "method": "POST",
+    "path": "/users"
+  },
+  "expect": {
+    "status": 401
+  }
+}
