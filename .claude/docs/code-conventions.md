@@ -68,3 +68,78 @@ let port: u16 = std::env::var("AUTH_PORT")
     .expect("AUTH_PORT must be a valid port number");
 ```
 
+---
+
+## DateTime serialization
+
+All `DateTime<Utc>` in external JSON must use `#[serde(serialize_with = "madome_core::serde::to_rfc3339_ms")]`.
+Output format: `"2023-02-11T11:09:00.000Z"` (RFC 3339, 3-digit millis, `Z` suffix).
+
+---
+
+## Query params: kebab-case
+
+All query param names use kebab-case: `per-page`, `sort-by`, `is-dislike`, `book-ids[]`.
+Use `serde(rename_all = "kebab-case")` on query structs.
+
+---
+
+## Pagination
+
+Range and default for every pagination parameter (`per-page`, `page`, and nested variants like
+`{noun}-per-page` / `{noun}-page`) must be explicitly decided per endpoint. Compat endpoints use
+legacy values as-is. New endpoints require explicit discussion before implementation.
+
+---
+
+## Sort param format
+
+`sort-by=created-at-desc` — direction embedded in kebab-case value. Parsed to
+`SortBy::CreatedAt(Sort::Desc)`. All sort enums follow this pattern.
+
+---
+
+## Health endpoints
+
+Every HTTP service must register `/healthz` and `/readyz` using
+`madome_core::health::{healthz, readyz}`.
+
+---
+
+## Tagged enum serde
+
+Polymorphic response/request types use `#[serde(tag = "kind", rename_all = "snake_case")]`.
+The `kind` field discriminates variants. Applies to: Taste, History, Notification response models;
+delete/create request bodies.
+
+---
+
+## gRPC error mapping
+
+Domain errors map to tonic Status:
+- `NotFound → NOT_FOUND`
+- `AlreadyExists → ALREADY_EXISTS`
+- `InvalidArgument → INVALID_ARGUMENT`
+- `Internal → INTERNAL`
+
+Use `tonic::Status::not_found(err.to_string())` etc.
+
+---
+
+## DELETE with JSON body
+
+Polymorphic DELETE endpoints (taste, history) accept a JSON body with tagged enum
+(`{"kind":"book","book_id":1}`), not path params. Simple single-resource DELETEs (passkeys) use
+path params. This is legacy Compat.
+
+---
+
+## HTTP status codes (Compat)
+
+Legacy-verified, all services consistent:
+- `POST → 201`
+- `GET → 200`
+- `PATCH → 200` (with body) or `204` (no body)
+- `DELETE → 204`
+
+Revisit after Stabilize when API is redesigned.
