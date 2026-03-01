@@ -34,9 +34,7 @@ async fn main() {
 
     let users_channel = tonic::transport::Channel::from_shared(config.users_grpc_url.clone())
         .expect("invalid USERS_GRPC_URL")
-        .connect()
-        .await
-        .expect("failed to connect to users gRPC");
+        .connect_lazy();
 
     let state = AppState {
         db,

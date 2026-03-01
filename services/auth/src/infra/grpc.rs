@@ -32,7 +32,7 @@ impl UserPort for GrpcUserPort {
             })
             .await;
         match response {
-            Ok(resp) => Ok(Some(proto_to_auth_user(resp.into_inner()))),
+            Ok(resp) => Ok(Some(resp.into_inner().try_into()?)),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(e) => Err(anyhow::anyhow!("gRPC get_user_by_email failed: {e}").into()),
         }
@@ -47,17 +47,27 @@ impl UserPort for GrpcUserPort {
             })
             .await;
         match response {
-            Ok(resp) => Ok(Some(proto_to_auth_user(resp.into_inner()))),
+            Ok(resp) => Ok(Some(resp.into_inner().try_into()?)),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(e) => Err(anyhow::anyhow!("gRPC get_user failed: {e}").into()),
         }
     }
 }
 
-fn proto_to_auth_user(user: madome_proto::user::User) -> AuthUser {
-    AuthUser {
-        id: user.id.parse().expect("invalid UUID from users service"),
-        email: user.email,
-        role: user.role as u8,
+impl TryFrom<madome_proto::user::User> for AuthUser {
+    type Error = AuthServiceError;
+
+    fn try_from(user: madome_proto::user::User) -> Result<Self, Self::Error> {
+        let id = user
+            .id
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid UUID from users service"))?;
+        let role = u8::try_from(user.role)
+            .map_err(|_| anyhow::anyhow!("role out of u8 range: {}", user.role))?;
+        Ok(AuthUser {
+            id,
+            email: user.email,
+            role,
+        })
     }
 }

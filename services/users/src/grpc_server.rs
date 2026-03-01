@@ -35,10 +35,7 @@ impl UserService for UsersGrpcServer {
         let usecase = GetUserUseCase {
             repo: self.state.user_repo(),
         };
-        let user = usecase
-            .execute(user_id)
-            .await
-            .map_err(|e| Status::not_found(e.to_string()))?;
+        let user = usecase.execute(user_id).await.map_err(Status::from)?;
 
         Ok(Response::new(User {
             id: user.id.to_string(),
@@ -60,10 +57,7 @@ impl UserService for UsersGrpcServer {
         let usecase = GetUserByEmailUseCase {
             repo: self.state.user_repo(),
         };
-        let user = usecase
-            .execute(&email)
-            .await
-            .map_err(|e| Status::not_found(e.to_string()))?;
+        let user = usecase.execute(&email).await.map_err(Status::from)?;
 
         Ok(Response::new(User {
             id: user.id.to_string(),
@@ -98,7 +92,7 @@ impl UserService for UsersGrpcServer {
         let domain_tastes = usecase
             .execute(user_id, Default::default(), is_dislike, page)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(Status::from)?;
 
         let tastes: Vec<Taste> = domain_tastes
             .into_iter()
@@ -133,7 +127,7 @@ impl UserService for UsersGrpcServer {
         usecase
             .execute(req.old_book_id as i32, req.new_book_id as i32)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(Status::from)?;
         Ok(Response::new(Empty {}))
     }
 }
@@ -167,10 +161,7 @@ impl NotificationService for UsersGrpcServer {
         let usecase = CreateNotificationUseCase {
             repo: self.state.notification_repo(),
         };
-        usecase
-            .execute(notification)
-            .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+        usecase.execute(notification).await.map_err(Status::from)?;
 
         Ok(Response::new(NotifEmpty {}))
     }

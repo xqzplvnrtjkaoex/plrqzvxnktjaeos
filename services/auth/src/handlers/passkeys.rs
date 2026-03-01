@@ -27,6 +27,7 @@ use crate::usecase::passkey::{
 #[derive(Serialize)]
 pub struct PasskeyResponse {
     pub credential_id: String,
+    #[serde(serialize_with = "madome_core::serde::to_rfc3339_ms")]
     pub created_at: DateTime<Utc>,
 }
 

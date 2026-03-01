@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 madome-auth-schema = { path = "schema" }
-madome-auth-types = { path = "../../crates/madome-auth-types" }
+madome-auth-types = { path = "../../crates/madome-auth-types", features = ["USE_ONLY_IN_AUTH_SERVICE"] }
 madome-core = { path = "../../crates/madome-core" }
 madome-domain = { path = "../../crates/madome-domain" }
 madome-proto = { path = "../../packages/proto" }

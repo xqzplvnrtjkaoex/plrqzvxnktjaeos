@@ -7,6 +7,7 @@ mod m20250301_000004_create_history_books;
 mod m20250301_000005_create_notification_books;
 mod m20250301_000006_create_notification_book_tags;
 mod m20250301_000007_create_fcm_tokens;
+mod m20250301_000008_add_missing_indexes;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250301_000005_create_notification_books::Migration),
             Box::new(m20250301_000006_create_notification_book_tags::Migration),
             Box::new(m20250301_000007_create_fcm_tokens::Migration),
+            Box::new(m20250301_000008_add_missing_indexes::Migration),
         ]
     }
 }

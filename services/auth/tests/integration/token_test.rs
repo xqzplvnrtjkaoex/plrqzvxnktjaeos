@@ -1,8 +1,9 @@
 use madome_auth::error::AuthServiceError;
 use madome_auth::usecase::token::{
     CreateTokenInput, CreateTokenUseCase, RefreshTokenUseCase, issue_access_token,
-    issue_refresh_token, validate_token,
+    issue_refresh_token,
 };
+use madome_auth_types::token::{AuthError, validate_token};
 
 use crate::helpers::{MockAuthCodeRepo, MockUserPort, TEST_JWT_SECRET, test_auth_code, test_user};
 
@@ -29,8 +30,8 @@ async fn should_reject_token_signed_with_wrong_secret() {
 
     let result = validate_token(&token, "wrong-secret");
     assert!(
-        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
-        "expected InvalidRefreshToken, got {result:?}"
+        matches!(result, Err(AuthError::InvalidSignature)),
+        "expected InvalidSignature, got {result:?}"
     );
 }
 
@@ -38,8 +39,8 @@ async fn should_reject_token_signed_with_wrong_secret() {
 async fn should_reject_invalid_token_string() {
     let result = validate_token("not-a-jwt", TEST_JWT_SECRET);
     assert!(
-        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
-        "expected InvalidRefreshToken, got {result:?}"
+        matches!(result, Err(AuthError::Malformed)),
+        "expected Malformed, got {result:?}"
     );
 }
 

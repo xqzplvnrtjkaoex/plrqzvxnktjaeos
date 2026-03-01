@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use tonic::Status;
 
 /// Users service domain error variants.
 #[derive(Debug, thiserror::Error)]
@@ -42,6 +43,26 @@ impl UsersServiceError {
             Self::MissingData => "MISSING_DATA",
             Self::Forbidden => "FORBIDDEN",
             Self::Internal(_) => "INTERNAL",
+        }
+    }
+}
+
+impl From<UsersServiceError> for Status {
+    fn from(e: UsersServiceError) -> Self {
+        match &e {
+            UsersServiceError::UserNotFound
+            | UsersServiceError::TasteNotFound
+            | UsersServiceError::HistoryNotFound
+            | UsersServiceError::BookNotFound
+            | UsersServiceError::BookTagNotFound => Status::not_found(e.to_string()),
+            UsersServiceError::UserAlreadyExists | UsersServiceError::TasteAlreadyExists => {
+                Status::already_exists(e.to_string())
+            }
+            UsersServiceError::InvalidHandle | UsersServiceError::MissingData => {
+                Status::invalid_argument(e.to_string())
+            }
+            UsersServiceError::Forbidden => Status::permission_denied(e.to_string()),
+            UsersServiceError::Internal(_) => Status::internal(e.to_string()),
         }
     }
 }

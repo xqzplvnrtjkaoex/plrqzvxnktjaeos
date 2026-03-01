@@ -1,7 +1,9 @@
 //! JWT access-token validation.
 
 use jsonwebtoken::{DecodingKey, Validation, decode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+#[cfg(any(feature = "USE_ONLY_IN_AUTH_SERVICE", test))]
+use serde::Serialize;
 use uuid::Uuid;
 
 /// User identity extracted from a validated access token.
@@ -23,26 +25,47 @@ pub enum AuthError {
     Malformed,
 }
 
-/// JWT claims struct used for encoding/decoding.
-#[derive(Debug, Serialize, Deserialize)]
-struct AccessClaims {
-    /// User ID as string.
-    sub: String,
-    /// User role as u8 wire value.
-    role: u8,
-    /// Expiration timestamp (seconds since epoch).
-    exp: u64,
+/// JWT claims payload shared by token creation (auth service) and validation (gateway).
+///
+/// # Fields
+///
+/// | Field | JWT claim | Rust type | Meaning |
+/// |-------|-----------|-----------|---------|
+/// | `sub` | `sub` | UUID string | user ID |
+/// | `role` | custom | `u8` wire value | see [`madome_domain::user::UserRole`] |
+/// | `exp` | `exp` | seconds since epoch | token expiration |
+///
+/// # Feature gate
+///
+/// [`Deserialize`] is always available — all consumers validate tokens.
+/// [`Serialize`] requires the **`USE_ONLY_IN_AUTH_SERVICE`** cargo feature. Only the auth
+/// service enables it because it is the sole token issuer.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(any(feature = "USE_ONLY_IN_AUTH_SERVICE", test), derive(Serialize))]
+pub struct JwtClaims {
+    /// User ID (UUID string).
+    pub sub: String,
+    /// User role as `u8` wire value.
+    pub role: u8,
+    /// Expiration timestamp (seconds since UNIX epoch).
+    pub exp: u64,
 }
 
-/// Validate an access-token cookie value. Pure function — no axum/tower dependency.
-pub fn validate_access_token(cookie_value: &str, secret: &str) -> Result<TokenInfo, AuthError> {
+// ── Core decode (private) ────────────────────────────────────────────────
+
+/// Decode and validate a JWT, returning raw claims.
+///
+/// Validation: HS256, exp checked, required claims: `exp` + `sub`.
+/// Default leeway = 60s — tolerates clock skew between services.
+/// Same library + version as legacy; matches legacy behavior.
+fn decode_jwt(token: &str, secret: &str) -> Result<JwtClaims, AuthError> {
     let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
     validation.validate_exp = true;
     validation.required_spec_claims.clear();
     validation.set_required_spec_claims(&["exp", "sub"]);
 
-    let token_data = decode::<AccessClaims>(
-        cookie_value,
+    let data = decode::<JwtClaims>(
+        token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     )
@@ -54,18 +77,40 @@ pub fn validate_access_token(cookie_value: &str, secret: &str) -> Result<TokenIn
         _ => AuthError::Malformed,
     })?;
 
-    let claims = token_data.claims;
+    Ok(data.claims)
+}
 
+// ── Public: all consumers ────────────────────────────────────────────────
+
+/// Validate an access-token cookie value, returning parsed identity.
+///
+/// This is the primary public API for token validation. Gateway calls this
+/// on every request to extract user identity from the JWT cookie.
+pub fn validate_access_token(cookie_value: &str, secret: &str) -> Result<TokenInfo, AuthError> {
+    let claims = decode_jwt(cookie_value, secret)?;
     let user_id = claims
         .sub
         .parse::<Uuid>()
         .map_err(|_| AuthError::Malformed)?;
-
     Ok(TokenInfo {
         user_id,
         user_role: claims.role,
         access_token_exp: claims.exp,
     })
+}
+
+// ── Feature-gated: auth service only ─────────────────────────────────────
+
+/// Validate a token and return raw JWT claims.
+///
+/// Used by the auth service's refresh flow — validates the refresh token,
+/// then looks up the user from the `sub` claim to issue new tokens.
+///
+/// Requires the `USE_ONLY_IN_AUTH_SERVICE` feature. Only the auth service
+/// should call this directly; all other consumers use [`validate_access_token`].
+#[cfg(any(feature = "USE_ONLY_IN_AUTH_SERVICE", test))]
+pub fn validate_token(token: &str, secret: &str) -> Result<JwtClaims, AuthError> {
+    decode_jwt(token, secret)
 }
 
 #[cfg(test)]
@@ -76,7 +121,7 @@ mod tests {
     const TEST_SECRET: &str = "test-secret-key-for-unit-tests";
 
     fn make_token(sub: &str, role: u8, exp: u64) -> String {
-        let claims = AccessClaims {
+        let claims = JwtClaims {
             sub: sub.to_string(),
             role,
             exp,

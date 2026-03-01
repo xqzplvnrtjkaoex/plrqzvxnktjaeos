@@ -1,21 +1,13 @@
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use serde::{Deserialize, Serialize};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 use madome_auth_types::cookie::{ACCESS_TOKEN_EXP, REFRESH_TOKEN_EXP};
+use madome_auth_types::token::{JwtClaims, validate_token};
 
 use crate::domain::repository::{AuthCodeRepository, UserPort};
 use crate::domain::types::AuthUser;
 use crate::error::AuthServiceError;
-
-/// JWT claims for both access and refresh tokens.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TokenClaims {
-    pub sub: String,
-    pub role: u8,
-    pub exp: u64,
-}
 
 fn now_secs() -> u64 {
     SystemTime::now()
@@ -29,7 +21,7 @@ pub fn issue_access_token(
     secret: &str,
 ) -> Result<(String, u64), AuthServiceError> {
     let exp = now_secs() + ACCESS_TOKEN_EXP;
-    let claims = TokenClaims {
+    let claims = JwtClaims {
         sub: user.id.to_string(),
         role: user.role,
         exp,
@@ -45,7 +37,7 @@ pub fn issue_access_token(
 
 pub fn issue_refresh_token(user: &AuthUser, secret: &str) -> Result<String, AuthServiceError> {
     let exp = now_secs() + REFRESH_TOKEN_EXP;
-    let claims = TokenClaims {
+    let claims = JwtClaims {
         sub: user.id.to_string(),
         role: user.role,
         exp,
@@ -56,23 +48,6 @@ pub fn issue_refresh_token(user: &AuthUser, secret: &str) -> Result<String, Auth
         &EncodingKey::from_secret(secret.as_bytes()),
     )
     .map_err(|e| AuthServiceError::Internal(e.into()))
-}
-
-/// Validate a token and return its claims. Used for the refresh flow.
-pub fn validate_token(token: &str, secret: &str) -> Result<TokenClaims, AuthServiceError> {
-    let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-    validation.validate_exp = true;
-    validation.required_spec_claims.clear();
-    validation.set_required_spec_claims(&["exp", "sub"]);
-
-    let data = decode::<TokenClaims>(
-        token,
-        &DecodingKey::from_secret(secret.as_bytes()),
-        &validation,
-    )
-    .map_err(|_| AuthServiceError::InvalidRefreshToken)?;
-
-    Ok(data.claims)
 }
 
 // ── CreateToken (login) ───────────────────────────────────────────────────────
@@ -162,8 +137,11 @@ where
         &self,
         refresh_token_value: &str,
     ) -> Result<RefreshTokenOutput, AuthServiceError> {
-        // Validate refresh token (sig + exp); expired access token is irrelevant here.
-        let claims = validate_token(refresh_token_value, &self.jwt_secret)?;
+        // validate_token returns detailed AuthError (Expired, InvalidSignature, Malformed),
+        // but for the refresh flow any failure = invalid refresh token from the client's
+        // perspective. The detailed error is intentionally discarded here.
+        let claims = validate_token(refresh_token_value, &self.jwt_secret)
+            .map_err(|_| AuthServiceError::InvalidRefreshToken)?;
 
         let user_id = claims
             .sub

@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+USE_ONLY_IN_AUTH_SERVICE = []
+
 [dependencies]
 axum = { workspace = true }
 axum-extra = { workspace = true }
@@ -14,6 +17,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 time = "0.3"
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

@@ -1,9 +1,11 @@
 use anyhow::Context as _;
 use chrono::{Duration, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    IntoActiveModel as _, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
-    sea_query::OnConflict,
+    ActiveModelTrait,
+    ActiveValue::Set,
+    ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel as _, QueryFilter, QueryOrder,
+    QuerySelect, TransactionTrait,
+    sea_query::{Expr, OnConflict},
 };
 use uuid::Uuid;
 
@@ -37,7 +39,10 @@ impl UserRepository for DbUserRepository {
             .one(&self.db)
             .await
             .context("find user by id")?;
-        Ok(model.map(user_from_model))
+        Ok(model
+            .map(User::try_from)
+            .transpose()
+            .context("corrupted user row")?)
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, UsersServiceError> {
@@ -46,7 +51,10 @@ impl UserRepository for DbUserRepository {
             .one(&self.db)
             .await
             .context("find user by email")?;
-        Ok(model.map(user_from_model))
+        Ok(model
+            .map(User::try_from)
+            .transpose()
+            .context("corrupted user row")?)
     }
 
     async fn create(&self, user: &User) -> Result<(), UsersServiceError> {
@@ -89,15 +97,21 @@ impl UserRepository for DbUserRepository {
     }
 }
 
-fn user_from_model(model: users::Model) -> User {
-    User {
-        id: model.id,
-        name: model.name,
-        handle: model.handle,
-        email: model.email,
-        role: model.role as u8,
-        created_at: model.created_at,
-        updated_at: model.updated_at,
+impl TryFrom<users::Model> for User {
+    type Error = anyhow::Error;
+
+    fn try_from(model: users::Model) -> Result<Self, Self::Error> {
+        let role = u8::try_from(model.role)
+            .map_err(|_| anyhow::anyhow!("role column out of u8 range: {}", model.role))?;
+        Ok(User {
+            id: model.id,
+            name: model.name,
+            handle: model.handle,
+            email: model.email,
+            role,
+            created_at: model.created_at,
+            updated_at: model.updated_at,
+        })
     }
 }
 
@@ -293,72 +307,52 @@ impl TasteRepository for DbTasteRepository {
     }
 
     async fn upsert_book(&self, taste: &TasteBook) -> Result<bool, UsersServiceError> {
-        let existing = taste_books::Entity::find_by_id((taste.user_id, taste.book_id))
-            .one(&self.db)
-            .await
-            .context("find taste book for upsert")?;
-
-        match existing {
-            Some(row) if row.is_dislike == taste.is_dislike => Ok(false),
-            Some(row) => {
-                let mut taste_book = row.into_active_model();
-                taste_book.is_dislike = Set(taste.is_dislike);
-                taste_book
-                    .update(&self.db)
-                    .await
-                    .context("update taste book")?;
-                Ok(true)
-            }
-            None => {
-                taste_books::ActiveModel {
-                    user_id: Set(taste.user_id),
-                    book_id: Set(taste.book_id),
-                    is_dislike: Set(taste.is_dislike),
-                    created_at: Set(taste.created_at),
-                }
-                .insert(&self.db)
-                .await
-                .context("insert taste book")?;
-                Ok(true)
-            }
-        }
+        let rows_affected = taste_books::Entity::insert(taste_books::ActiveModel {
+            user_id: Set(taste.user_id),
+            book_id: Set(taste.book_id),
+            is_dislike: Set(taste.is_dislike),
+            created_at: Set(taste.created_at),
+        })
+        .on_conflict(
+            OnConflict::columns([taste_books::Column::UserId, taste_books::Column::BookId])
+                .update_column(taste_books::Column::IsDislike)
+                .action_and_where(
+                    Expr::col((taste_books::Entity, taste_books::Column::IsDislike))
+                        .ne(taste.is_dislike),
+                )
+                .to_owned(),
+        )
+        .exec_without_returning(&self.db)
+        .await
+        .context("upsert taste book")?;
+        Ok(rows_affected > 0)
     }
 
     async fn upsert_book_tag(&self, taste: &TasteBookTag) -> Result<bool, UsersServiceError> {
-        let existing = taste_book_tags::Entity::find_by_id((
-            taste.user_id,
-            taste.tag_kind.clone(),
-            taste.tag_name.clone(),
-        ))
-        .one(&self.db)
+        let rows_affected = taste_book_tags::Entity::insert(taste_book_tags::ActiveModel {
+            user_id: Set(taste.user_id),
+            tag_kind: Set(taste.tag_kind.clone()),
+            tag_name: Set(taste.tag_name.clone()),
+            is_dislike: Set(taste.is_dislike),
+            created_at: Set(taste.created_at),
+        })
+        .on_conflict(
+            OnConflict::columns([
+                taste_book_tags::Column::UserId,
+                taste_book_tags::Column::TagKind,
+                taste_book_tags::Column::TagName,
+            ])
+            .update_column(taste_book_tags::Column::IsDislike)
+            .action_and_where(
+                Expr::col((taste_book_tags::Entity, taste_book_tags::Column::IsDislike))
+                    .ne(taste.is_dislike),
+            )
+            .to_owned(),
+        )
+        .exec_without_returning(&self.db)
         .await
-        .context("find taste book tag for upsert")?;
-
-        match existing {
-            Some(row) if row.is_dislike == taste.is_dislike => Ok(false),
-            Some(row) => {
-                let mut taste_book_tag = row.into_active_model();
-                taste_book_tag.is_dislike = Set(taste.is_dislike);
-                taste_book_tag
-                    .update(&self.db)
-                    .await
-                    .context("update taste book tag")?;
-                Ok(true)
-            }
-            None => {
-                taste_book_tags::ActiveModel {
-                    user_id: Set(taste.user_id),
-                    tag_kind: Set(taste.tag_kind.clone()),
-                    tag_name: Set(taste.tag_name.clone()),
-                    is_dislike: Set(taste.is_dislike),
-                    created_at: Set(taste.created_at),
-                }
-                .insert(&self.db)
-                .await
-                .context("insert taste book tag")?;
-                Ok(true)
-            }
-        }
+        .context("upsert taste book tag")?;
+        Ok(rows_affected > 0)
     }
 
     async fn delete_book(&self, user_id: Uuid, book_id: i32) -> Result<bool, UsersServiceError> {
@@ -536,25 +530,37 @@ impl NotificationRepository for DbNotificationRepository {
             .await
             .context("list notification books")?;
 
-        let mut results = Vec::with_capacity(models.len());
-        for model in models {
-            let tags = notification_book_tags::Entity::find()
-                .filter(notification_book_tags::Column::NotificationBookId.eq(model.id))
-                .all(&self.db)
-                .await
-                .context("list notification book tags")?;
-            let book_tags = tags
-                .into_iter()
-                .map(|tag| (tag.tag_kind, tag.tag_name))
-                .collect();
-            results.push(NotificationBook {
-                id: model.id,
-                user_id: model.user_id,
-                book_id: model.book_id,
-                book_tags,
-                created_at: model.created_at,
-            });
+        // Batch-load all tags for the fetched notifications
+        let notification_ids: Vec<Uuid> = models.iter().map(|m| m.id).collect();
+        let all_tags = notification_book_tags::Entity::find()
+            .filter(notification_book_tags::Column::NotificationBookId.is_in(notification_ids))
+            .all(&self.db)
+            .await
+            .context("list notification book tags")?;
+
+        // Group by notification_book_id
+        let mut tags_map: std::collections::HashMap<Uuid, Vec<(String, String)>> =
+            std::collections::HashMap::new();
+        for tag in all_tags {
+            tags_map
+                .entry(tag.notification_book_id)
+                .or_default()
+                .push((tag.tag_kind, tag.tag_name));
         }
+
+        let results = models
+            .into_iter()
+            .map(|model| {
+                let book_tags = tags_map.remove(&model.id).unwrap_or_default();
+                NotificationBook {
+                    id: model.id,
+                    user_id: model.user_id,
+                    book_id: model.book_id,
+                    book_tags,
+                    created_at: model.created_at,
+                }
+            })
+            .collect();
         Ok(results)
     }
 
@@ -603,8 +609,6 @@ impl RenewBookPort for DbRenewBookPort {
         self.db
             .transaction::<_, (), sea_orm::DbErr>(|txn| {
                 Box::pin(async move {
-                    use sea_orm::sea_query::Expr;
-
                     // taste_books: delete old rows where new_id already exists for same user
                     let _ = taste_books::Entity::delete_many()
                         .filter(taste_books::Column::BookId.eq(old_id))

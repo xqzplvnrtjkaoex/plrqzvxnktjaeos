@@ -2,6 +2,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use serde::{Deserialize, Serialize};
 
 use madome_auth_types::identity::IdentityHeaders;
+use madome_domain::user::UserRole;
 
 use crate::error::UsersServiceError;
 use crate::state::AppState;
@@ -24,11 +25,11 @@ pub async fn create_user(
     State(state): State<AppState>,
     Json(body): Json<CreateUserRequest>,
 ) -> Result<StatusCode, UsersServiceError> {
-    if identity.user_role < 2 {
+    if identity.user_role < UserRole::Bot.as_u8() {
         return Err(UsersServiceError::Forbidden);
     }
-    let role = body.role.unwrap_or(0);
-    if role > 1 {
+    let role = body.role.unwrap_or(UserRole::Normal.as_u8());
+    if role > UserRole::Developer.as_u8() {
         return Err(UsersServiceError::Forbidden);
     }
     let usecase = CreateUserUseCase {

@@ -174,13 +174,113 @@ delete/create request bodies.
 
 ## gRPC error mapping
 
-Domain errors map to tonic Status:
-- `NotFound → NOT_FOUND`
-- `AlreadyExists → ALREADY_EXISTS`
-- `InvalidArgument → INVALID_ARGUMENT`
-- `Internal → INTERNAL`
+Domain errors convert to `tonic::Status` via `From` trait impl. Use `.map_err(Status::from)`
+at call sites.
 
-Use `tonic::Status::not_found(err.to_string())` etc.
+| Domain error | tonic Status |
+|---|---|
+| `*NotFound` | `NOT_FOUND` |
+| `*AlreadyExists` | `ALREADY_EXISTS` |
+| `InvalidHandle`, `MissingData` | `INVALID_ARGUMENT` |
+| `Forbidden` | `PERMISSION_DENIED` |
+| `Internal` | `INTERNAL` |
+
+---
+
+## Serde format convention
+
+| Wire location | `rename_all` | Rationale |
+|---------------|--------------|-----------|
+| **URL** (query params, path segments) | `kebab-case` | URL convention — hyphens are word separators |
+| **JSON body** (request / response) | `snake_case` | JSON convention — underscores are standard |
+
+Examples:
+- URL: `BookKind` (`artist-cg`), `BookTagKind` (`female`), `Sort` (`id-desc`), `*ListQuery` structs
+- Body: `TasteResponse` (`book_tag`), `CreateTasteRequest`, `HistoryResponse`, `UserRole` (`normal`)
+
+Domain types follow the convention of their primary serialization context.
+
+---
+
+## gRPC client channels
+
+Use `connect_lazy()` for inter-service gRPC channels in long-running services. Eager
+`connect()` creates startup ordering dependencies — if the target service restarts or
+isn't ready yet, the caller fails to start. Lazy connection defers until first RPC call
+and auto-reconnects.
+
+Use eager `connect()` only when immediate failure is desired: CLI tools, one-shot scripts,
+or health-check probes that need to verify connectivity upfront.
+
+---
+
+## Type conversion conventions
+
+Implement conversions using std traits (`From`, `TryFrom`, `FromStr`). Never write
+standalone conversion functions when a trait impl works.
+
+**`From` vs `TryFrom`:** If the conversion can fail at all, use `TryFrom`. The caller
+decides whether to panic (`.expect()`) or propagate (`.try_into()?`). Don't bake panic
+into the conversion itself — that removes the caller's choice.
+
+Call-site patterns — prefer `Into::into` / `TryInto::try_into` over naming the concrete type:
+
+| Context | Pattern | Example |
+|---------|---------|---------|
+| Infallible A→B | `.into()` | `let status: Status = error.into();` |
+| Fallible A→B (propagate) | `.try_into()?` | `let user: User = model.try_into()?;` |
+| Fallible A→B (panic) | `.try_into().expect("reason")` | `model.try_into().expect("corrupted row")` |
+| `Result::map_err` | `.map_err(Into::into)` | `.await.map_err(Into::into)?` |
+| `Option`/`Result`/`Either` map | `.map(Into::into)` | `.ok().map(Into::into)` |
+| Iterator (infallible) | `.map_into()` (itertools) | `vec.into_iter().map_into::<B>()` |
+
+**When NOT to use `From`/`TryFrom`:**
+
+Standalone functions or methods are correct when any of these apply:
+
+| Reason | Category | Example |
+|--------|----------|---------|
+| Same source type, different parsing | Mechanical | `from_kebab_case(&str)` vs `from_snake_case(&str)` — Rust allows only one `From<&str>` per type |
+| Extra parameters needed | Mechanical | `From`/`TryFrom` take only the source value — can't pass secret, config, context. Still a pure conversion, just can't fit the signature |
+| Side-effectful operation | Semantic | DB lookups, network calls — the result depends on external state, not just the input. `from` implies same input → same output; side effects break that contract |
+
+The first two are **mechanical** — the operation is a pure conversion but the trait can't
+express it. The last is **semantic** — the operation isn't a conversion at all, it's a lookup
+that produces a different type.
+
+**When type inference fails:**
+
+- Single value: `let b: BType = a.into();`
+- Iterator: `.map_into::<BType>()`
+- `map_err`: `.map_err(BType::from)` (exception — `Into::into` can't carry a turbofish)
+
+---
+
+## JWT claims
+
+`JwtClaims` lives in `madome-auth-types` as the single source of truth for the JWT
+payload. `Serialize` is gated behind the `USE_ONLY_IN_AUTH_SERVICE` cargo feature — only the auth service
+enables it.
+
+| Consumer | Feature | Available derives |
+|----------|---------|-------------------|
+| auth service | `USE_ONLY_IN_AUTH_SERVICE` | `Serialize` + `Deserialize` |
+| gateway, users, testing | (none) | `Deserialize` only |
+
+---
+
+## Handler dispatching pattern
+
+When a single legacy endpoint serves multiple query-param modes (e.g. `kind=book`,
+`kind=book_tag`, `book-ids[]`), the handler dispatches to different use cases based on
+the query params. This is **handler responsibility, not business logic** — each use case
+remains a focused unit and the handler just picks the right one.
+
+Do not refactor this into a single "dispatcher" use case — it moves the same branching
+deeper without reducing complexity, and couples unrelated use cases.
+
+Example: `services/users/src/handlers/taste.rs` — `get_tastes()` dispatches to 4 use cases
+based on `kind` and `book-ids[]` query params.
 
 ---
 

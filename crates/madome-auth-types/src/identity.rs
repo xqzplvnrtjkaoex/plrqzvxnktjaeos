@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 /// User identity injected by the gateway via `x-madome-user-id` and `x-madome-user-role` headers.
 ///
-/// Returns 401 if `x-madome-user-id` is absent or cannot be parsed as UUID.
-/// Role enforcement (403) is done by handlers after extraction.
+/// Rejects with `500 Internal Server Error` if headers are missing or invalid.
+/// See [`IdentityHeaders::from_request_parts`] for details.
 #[derive(Debug, Clone)]
 pub struct IdentityHeaders {
     pub user_id: Uuid,
@@ -21,6 +21,18 @@ where
 {
     type Rejection = StatusCode;
 
+    /// Extract identity from gateway-injected headers.
+    ///
+    /// # Rejection
+    ///
+    /// Returns `500 Internal Server Error` (not 401) when headers are missing or
+    /// malformed. These headers are injected by the gateway after JWT validation —
+    /// their absence means the gateway is misconfigured or the request bypassed it
+    /// entirely. This is a server-side infrastructure failure, not a client
+    /// authentication problem. The client cannot fix this by re-authenticating.
+    ///
+    /// An `error!` log is emitted so operators can diagnose the issue.
+    //
     // axum-core 0.5 defines this as `fn -> impl Future + Send` (not `async fn`).
     // In Rust 1.82+ precise capturing, `async fn` captures lifetimes differently,
     // causing E0195. Fix: extract values synchronously, return a 'static async move block.
@@ -41,8 +53,18 @@ where
             .and_then(|s| s.parse::<u8>().ok());
 
         async move {
-            let user_id = user_id.ok_or(StatusCode::UNAUTHORIZED)?;
-            let user_role = user_role.ok_or(StatusCode::UNAUTHORIZED)?;
+            let user_id = user_id.ok_or_else(|| {
+                tracing::error!(
+                    "x-madome-user-id header missing or invalid — gateway misconfigured"
+                );
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+            let user_role = user_role.ok_or_else(|| {
+                tracing::error!(
+                    "x-madome-user-role header missing or invalid — gateway misconfigured"
+                );
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
             Ok(Self { user_id, user_role })
         }
     }
@@ -81,7 +103,7 @@ mod tests {
     #[tokio::test]
     async fn should_reject_missing_user_id() {
         let result = extract_identity(vec![("x-madome-user-role", "0")]).await;
-        assert_eq!(result.unwrap_err(), StatusCode::UNAUTHORIZED);
+        assert_eq!(result.unwrap_err(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[tokio::test]
@@ -91,14 +113,14 @@ mod tests {
             ("x-madome-user-role", "0"),
         ])
         .await;
-        assert_eq!(result.unwrap_err(), StatusCode::UNAUTHORIZED);
+        assert_eq!(result.unwrap_err(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[tokio::test]
     async fn should_reject_missing_user_role() {
         let user_id = Uuid::new_v4();
         let result = extract_identity(vec![("x-madome-user-id", &user_id.to_string())]).await;
-        assert_eq!(result.unwrap_err(), StatusCode::UNAUTHORIZED);
+        assert_eq!(result.unwrap_err(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[tokio::test]
@@ -109,6 +131,6 @@ mod tests {
             ("x-madome-user-role", "abc"),
         ])
         .await;
-        assert_eq!(result.unwrap_err(), StatusCode::UNAUTHORIZED);
+        assert_eq!(result.unwrap_err(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }
