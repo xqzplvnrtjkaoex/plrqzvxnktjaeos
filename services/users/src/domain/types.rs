@@ -34,6 +34,13 @@ pub struct TasteBookTag {
     pub created_at: DateTime<Utc>,
 }
 
+/// Unified taste enum — returned by combined UNION ALL queries.
+#[derive(Debug, Clone)]
+pub enum Taste {
+    Book(TasteBook),
+    BookTag(TasteBookTag),
+}
+
 /// A book reading history entry.
 #[derive(Debug, Clone)]
 pub struct HistoryBook {

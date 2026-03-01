@@ -5,7 +5,7 @@ use uuid::Uuid;
 use madome_domain::pagination::PageRequest;
 
 use crate::domain::types::{
-    FcmToken, HistoryBook, HistorySortBy, NotificationBook, NotificationSortBy, TasteBook,
+    FcmToken, HistoryBook, HistorySortBy, NotificationBook, NotificationSortBy, Taste, TasteBook,
     TasteBookTag, TasteSortBy, User,
 };
 use crate::error::UsersServiceError;
@@ -22,9 +22,18 @@ pub trait UserRepository: Send + Sync {
     ) -> Result<(), UsersServiceError>;
 }
 
-/// Repository for book tastes (likes/dislikes).
-pub trait TasteBookRepository: Send + Sync {
-    async fn list(
+/// Repository for tastes (book likes/dislikes and book-tag likes/dislikes).
+pub trait TasteRepository: Send + Sync {
+    /// Combined list of both book and book-tag tastes (UNION ALL).
+    async fn list_all(
+        &self,
+        user_id: Uuid,
+        sort_by: TasteSortBy,
+        is_dislike: Option<bool>,
+        page: PageRequest,
+    ) -> Result<Vec<Taste>, UsersServiceError>;
+
+    async fn list_books(
         &self,
         user_id: Uuid,
         sort_by: TasteSortBy,
@@ -32,28 +41,7 @@ pub trait TasteBookRepository: Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<TasteBook>, UsersServiceError>;
 
-    async fn list_by_book_ids(
-        &self,
-        user_id: Uuid,
-        book_ids: &[i32],
-    ) -> Result<Vec<TasteBook>, UsersServiceError>;
-
-    async fn get(
-        &self,
-        user_id: Uuid,
-        book_id: i32,
-    ) -> Result<Option<TasteBook>, UsersServiceError>;
-
-    /// Upsert a book taste. Returns `true` if the `is_dislike` value changed.
-    async fn upsert(&self, taste: &TasteBook) -> Result<bool, UsersServiceError>;
-
-    /// Delete a book taste. Returns `true` if a row was deleted.
-    async fn delete(&self, user_id: Uuid, book_id: i32) -> Result<bool, UsersServiceError>;
-}
-
-/// Repository for book-tag tastes (likes/dislikes).
-pub trait TasteBookTagRepository: Send + Sync {
-    async fn list(
+    async fn list_book_tags(
         &self,
         user_id: Uuid,
         sort_by: TasteSortBy,
@@ -61,18 +49,36 @@ pub trait TasteBookTagRepository: Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<TasteBookTag>, UsersServiceError>;
 
-    async fn get(
+    async fn list_by_book_ids(
+        &self,
+        user_id: Uuid,
+        book_ids: &[i32],
+    ) -> Result<Vec<TasteBook>, UsersServiceError>;
+
+    async fn get_book(
+        &self,
+        user_id: Uuid,
+        book_id: i32,
+    ) -> Result<Option<TasteBook>, UsersServiceError>;
+
+    async fn get_book_tag(
         &self,
         user_id: Uuid,
         tag_kind: &str,
         tag_name: &str,
     ) -> Result<Option<TasteBookTag>, UsersServiceError>;
 
+    /// Upsert a book taste. Returns `true` if the `is_dislike` value changed.
+    async fn upsert_book(&self, taste: &TasteBook) -> Result<bool, UsersServiceError>;
+
     /// Upsert a book-tag taste. Returns `true` if the `is_dislike` value changed.
-    async fn upsert(&self, taste: &TasteBookTag) -> Result<bool, UsersServiceError>;
+    async fn upsert_book_tag(&self, taste: &TasteBookTag) -> Result<bool, UsersServiceError>;
+
+    /// Delete a book taste. Returns `true` if a row was deleted.
+    async fn delete_book(&self, user_id: Uuid, book_id: i32) -> Result<bool, UsersServiceError>;
 
     /// Delete a book-tag taste. Returns `true` if a row was deleted.
-    async fn delete(
+    async fn delete_book_tag(
         &self,
         user_id: Uuid,
         tag_kind: &str,

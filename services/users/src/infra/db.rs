@@ -15,10 +15,10 @@ use madome_users_schema::{
 
 use crate::domain::repository::{
     FcmTokenRepository, HistoryRepository, NotificationRepository, RenewBookPort,
-    TasteBookRepository, TasteBookTagRepository, UserRepository,
+    TasteRepository, UserRepository,
 };
 use crate::domain::types::{
-    FcmToken, HistoryBook, HistorySortBy, NotificationBook, NotificationSortBy, TasteBook,
+    FcmToken, HistoryBook, HistorySortBy, NotificationBook, NotificationSortBy, Taste, TasteBook,
     TasteBookTag, TasteSortBy, User,
 };
 use crate::error::UsersServiceError;
@@ -89,15 +89,96 @@ fn user_from_model(m: users::Model) -> User {
     }
 }
 
-// ── TasteBook repository ─────────────────────────────────────────────────────
+// ── Taste repository (unified) ──────────────────────────────────────────────
 
 #[derive(Clone)]
-pub struct DbTasteBookRepository {
+pub struct DbTasteRepository {
     pub db: DatabaseConnection,
 }
 
-impl TasteBookRepository for DbTasteBookRepository {
-    async fn list(
+impl TasteRepository for DbTasteRepository {
+    async fn list_all(
+        &self,
+        user_id: Uuid,
+        sort_by: TasteSortBy,
+        is_dislike: Option<bool>,
+        page: PageRequest,
+    ) -> Result<Vec<Taste>, UsersServiceError> {
+        use sea_orm::{ConnectionTrait, FromQueryResult, Statement};
+
+        let page = page.clamped();
+        let offset = ((page.page - 1) * page.per_page) as i64;
+        let limit = page.per_page as i64;
+
+        let sort_clause = match sort_by {
+            TasteSortBy::CreatedAt(Sort::Desc) => "created_at DESC",
+            TasteSortBy::CreatedAt(Sort::Asc) => "created_at ASC",
+            TasteSortBy::Random => "RANDOM()",
+        };
+        let dislike_clause = match is_dislike {
+            Some(v) => format!("AND is_dislike = {v}"),
+            None => String::new(),
+        };
+
+        let sql = format!(
+            r#"
+            SELECT * FROM (
+                SELECT user_id, book_id, NULL AS tag_kind, NULL AS tag_name, is_dislike, created_at
+                    FROM taste_books
+                    WHERE user_id = $1 {dislike_clause}
+                UNION ALL
+                SELECT user_id, NULL, tag_kind, tag_name, is_dislike, created_at
+                    FROM taste_book_tags
+                    WHERE user_id = $1 {dislike_clause}
+            ) AS a
+            ORDER BY {sort_clause}
+            LIMIT $2 OFFSET $3
+            "#,
+        );
+
+        #[derive(Debug, FromQueryResult)]
+        struct TasteRow {
+            book_id: Option<i32>,
+            tag_kind: Option<String>,
+            tag_name: Option<String>,
+            is_dislike: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+
+        let rows = TasteRow::find_by_statement(Statement::from_sql_and_values(
+            self.db.get_database_backend(),
+            &sql,
+            [user_id.into(), limit.into(), offset.into()],
+        ))
+        .all(&self.db)
+        .await
+        .context("list all tastes (UNION ALL)")?;
+
+        let tastes = rows
+            .into_iter()
+            .map(|r| {
+                if let Some(book_id) = r.book_id {
+                    Taste::Book(TasteBook {
+                        user_id,
+                        book_id,
+                        is_dislike: r.is_dislike,
+                        created_at: r.created_at,
+                    })
+                } else {
+                    Taste::BookTag(TasteBookTag {
+                        user_id,
+                        tag_kind: r.tag_kind.unwrap_or_default(),
+                        tag_name: r.tag_name.unwrap_or_default(),
+                        is_dislike: r.is_dislike,
+                        created_at: r.created_at,
+                    })
+                }
+            })
+            .collect();
+        Ok(tastes)
+    }
+
+    async fn list_books(
         &self,
         user_id: Uuid,
         sort_by: TasteSortBy,
@@ -127,90 +208,7 @@ impl TasteBookRepository for DbTasteBookRepository {
         Ok(models.into_iter().map(taste_book_from_model).collect())
     }
 
-    async fn list_by_book_ids(
-        &self,
-        user_id: Uuid,
-        book_ids: &[i32],
-    ) -> Result<Vec<TasteBook>, UsersServiceError> {
-        let models = taste_books::Entity::find()
-            .filter(taste_books::Column::UserId.eq(user_id))
-            .filter(taste_books::Column::BookId.is_in(book_ids.iter().copied()))
-            .all(&self.db)
-            .await
-            .context("list taste books by book ids")?;
-        Ok(models.into_iter().map(taste_book_from_model).collect())
-    }
-
-    async fn get(
-        &self,
-        user_id: Uuid,
-        book_id: i32,
-    ) -> Result<Option<TasteBook>, UsersServiceError> {
-        let model = taste_books::Entity::find_by_id((user_id, book_id))
-            .one(&self.db)
-            .await
-            .context("get taste book")?;
-        Ok(model.map(taste_book_from_model))
-    }
-
-    async fn upsert(&self, taste: &TasteBook) -> Result<bool, UsersServiceError> {
-        let existing = taste_books::Entity::find_by_id((taste.user_id, taste.book_id))
-            .one(&self.db)
-            .await
-            .context("find taste book for upsert")?;
-
-        match existing {
-            Some(row) if row.is_dislike == taste.is_dislike => Ok(false),
-            Some(row) => {
-                let mut am = row.into_active_model();
-                am.is_dislike = Set(taste.is_dislike);
-                am.update(&self.db).await.context("update taste book")?;
-                Ok(true)
-            }
-            None => {
-                taste_books::ActiveModel {
-                    user_id: Set(taste.user_id),
-                    book_id: Set(taste.book_id),
-                    is_dislike: Set(taste.is_dislike),
-                    created_at: Set(taste.created_at),
-                }
-                .insert(&self.db)
-                .await
-                .context("insert taste book")?;
-                Ok(true)
-            }
-        }
-    }
-
-    async fn delete(&self, user_id: Uuid, book_id: i32) -> Result<bool, UsersServiceError> {
-        let result = taste_books::Entity::delete_many()
-            .filter(taste_books::Column::UserId.eq(user_id))
-            .filter(taste_books::Column::BookId.eq(book_id))
-            .exec(&self.db)
-            .await
-            .context("delete taste book")?;
-        Ok(result.rows_affected > 0)
-    }
-}
-
-fn taste_book_from_model(m: taste_books::Model) -> TasteBook {
-    TasteBook {
-        user_id: m.user_id,
-        book_id: m.book_id,
-        is_dislike: m.is_dislike,
-        created_at: m.created_at,
-    }
-}
-
-// ── TasteBookTag repository ──────────────────────────────────────────────────
-
-#[derive(Clone)]
-pub struct DbTasteBookTagRepository {
-    pub db: DatabaseConnection,
-}
-
-impl TasteBookTagRepository for DbTasteBookTagRepository {
-    async fn list(
+    async fn list_book_tags(
         &self,
         user_id: Uuid,
         sort_by: TasteSortBy,
@@ -241,7 +239,33 @@ impl TasteBookTagRepository for DbTasteBookTagRepository {
         Ok(models.into_iter().map(taste_book_tag_from_model).collect())
     }
 
-    async fn get(
+    async fn list_by_book_ids(
+        &self,
+        user_id: Uuid,
+        book_ids: &[i32],
+    ) -> Result<Vec<TasteBook>, UsersServiceError> {
+        let models = taste_books::Entity::find()
+            .filter(taste_books::Column::UserId.eq(user_id))
+            .filter(taste_books::Column::BookId.is_in(book_ids.iter().copied()))
+            .all(&self.db)
+            .await
+            .context("list taste books by book ids")?;
+        Ok(models.into_iter().map(taste_book_from_model).collect())
+    }
+
+    async fn get_book(
+        &self,
+        user_id: Uuid,
+        book_id: i32,
+    ) -> Result<Option<TasteBook>, UsersServiceError> {
+        let model = taste_books::Entity::find_by_id((user_id, book_id))
+            .one(&self.db)
+            .await
+            .context("get taste book")?;
+        Ok(model.map(taste_book_from_model))
+    }
+
+    async fn get_book_tag(
         &self,
         user_id: Uuid,
         tag_kind: &str,
@@ -258,7 +282,36 @@ impl TasteBookTagRepository for DbTasteBookTagRepository {
         Ok(model.map(taste_book_tag_from_model))
     }
 
-    async fn upsert(&self, taste: &TasteBookTag) -> Result<bool, UsersServiceError> {
+    async fn upsert_book(&self, taste: &TasteBook) -> Result<bool, UsersServiceError> {
+        let existing = taste_books::Entity::find_by_id((taste.user_id, taste.book_id))
+            .one(&self.db)
+            .await
+            .context("find taste book for upsert")?;
+
+        match existing {
+            Some(row) if row.is_dislike == taste.is_dislike => Ok(false),
+            Some(row) => {
+                let mut am = row.into_active_model();
+                am.is_dislike = Set(taste.is_dislike);
+                am.update(&self.db).await.context("update taste book")?;
+                Ok(true)
+            }
+            None => {
+                taste_books::ActiveModel {
+                    user_id: Set(taste.user_id),
+                    book_id: Set(taste.book_id),
+                    is_dislike: Set(taste.is_dislike),
+                    created_at: Set(taste.created_at),
+                }
+                .insert(&self.db)
+                .await
+                .context("insert taste book")?;
+                Ok(true)
+            }
+        }
+    }
+
+    async fn upsert_book_tag(&self, taste: &TasteBookTag) -> Result<bool, UsersServiceError> {
         let existing = taste_book_tags::Entity::find_by_id((
             taste.user_id,
             taste.tag_kind.clone(),
@@ -294,7 +347,17 @@ impl TasteBookTagRepository for DbTasteBookTagRepository {
         }
     }
 
-    async fn delete(
+    async fn delete_book(&self, user_id: Uuid, book_id: i32) -> Result<bool, UsersServiceError> {
+        let result = taste_books::Entity::delete_many()
+            .filter(taste_books::Column::UserId.eq(user_id))
+            .filter(taste_books::Column::BookId.eq(book_id))
+            .exec(&self.db)
+            .await
+            .context("delete taste book")?;
+        Ok(result.rows_affected > 0)
+    }
+
+    async fn delete_book_tag(
         &self,
         user_id: Uuid,
         tag_kind: &str,
@@ -308,6 +371,15 @@ impl TasteBookTagRepository for DbTasteBookTagRepository {
             .await
             .context("delete taste book tag")?;
         Ok(result.rows_affected > 0)
+    }
+}
+
+fn taste_book_from_model(m: taste_books::Model) -> TasteBook {
+    TasteBook {
+        user_id: m.user_id,
+        book_id: m.book_id,
+        is_dislike: m.is_dislike,
+        created_at: m.created_at,
     }
 }
 
