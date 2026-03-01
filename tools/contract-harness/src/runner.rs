@@ -10,6 +10,8 @@ pub struct RunResult {
     pub actual_status: Option<u16>,
     /// Headers that were expected but missing or had the wrong value.
     pub header_mismatches: Vec<String>,
+    /// Set when `expect.body` was provided and the actual body didn't match.
+    pub body_mismatch: Option<String>,
     /// Set when the request could not be sent (e.g. connection refused).
     pub error: Option<String>,
 }
@@ -19,6 +21,7 @@ impl RunResult {
         self.error.is_none()
             && self.actual_status == Some(self.expected_status)
             && self.header_mismatches.is_empty()
+            && self.body_mismatch.is_none()
     }
 }
 
@@ -46,6 +49,7 @@ impl Runner {
                         expected_status: fixture.expect.status,
                         actual_status: None,
                         header_mismatches: Vec::new(),
+                        body_mismatch: None,
                         error: Some(format!("unknown HTTP method: {}", fixture.request.method)),
                     };
                 }
@@ -83,10 +87,25 @@ impl Runner {
                     }
                 }
 
+                // Check expected body (exact JSON match).
+                let body_mismatch = if let Some(expected_body) = &fixture.expect.body {
+                    let body_text = resp.text().await.unwrap_or_default();
+                    let actual_body: serde_json::Value =
+                        serde_json::from_str(&body_text).unwrap_or(serde_json::Value::Null);
+                    if &actual_body != expected_body {
+                        Some(format!("body: expected {expected_body}, got {actual_body}"))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 RunResult {
                     expected_status: fixture.expect.status,
                     actual_status: Some(actual_status),
                     header_mismatches,
+                    body_mismatch,
                     error: None,
                 }
             }
@@ -94,6 +113,7 @@ impl Runner {
                 expected_status: fixture.expect.status,
                 actual_status: None,
                 header_mismatches: Vec::new(),
+                body_mismatch: None,
                 error: Some(e.to_string()),
             },
         }

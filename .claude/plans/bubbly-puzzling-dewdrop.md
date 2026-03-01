@@ -62,7 +62,7 @@ git checkout -b dev
 **Commit 4 — `crates/madome-core`**
 - `AppError` enum + `IntoResponse` (Unauthorized→401, Forbidden→403, NotFound→404, Conflict→409, Internal→500)
 - `init_tracing()` — structured stdout logs (tracing-subscriber JSON)
-- `Config` derive helper wrapping `envy` — fail-fast on missing env vars
+- `Config::from_env()` using `std::env::var()` — fail-fast on missing env vars
 - Health check handlers: `GET /healthz`, `GET /readyz`
 - Request ID middleware — propagates `x-request-id`
 
@@ -642,7 +642,7 @@ handlers/   ──→  usecase/  ←──  infra/
 
 - `AppError` + common variants: `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `Internal`
 - `init_tracing()` — OTLP/stdout structured logs
-- `Config` derive helper (wraps `envy`; fail-fast on missing vars)
+- `Config::from_env()` using `std::env::var()` — fail-fast on missing vars
 - Health check handlers (`GET /healthz`, `GET /readyz`)
 - Request ID middleware — propagates `x-request-id`
 
@@ -751,7 +751,7 @@ PII (emails) must be redacted.
 inbound request
   1. Strip ALL inbound x-madome-* headers     ← prevents spoofing
      ALLOWED_INBOUND_X_MADOME: &[&str] = &[]  ← extend as needed
-  2. x-request-id: absent/invalid → generate UUID v4
+  2. x-request-id: absent/invalid → generate UUID v7
   3. Validate madome_access_token cookie (JWT sig + exp)
      Valid → inject x-madome-user-id + x-madome-user-role
      Absent/invalid → forward without identity headers
@@ -856,7 +856,7 @@ PostgreSQL LISTEN/NOTIFY preferred; polling as fallback.
 | DB queries             | Mixed with domain logic                    | `domain/` trait + `infra/db.rs` sea-orm impl; entities in `schema/src/`  |
 | Test isolation         | Shared DB state                            | `TestDb` with per-test isolated schemas (sea-orm migrations)             |
 | Contract validation    | None                                       | `contracts/` + `contract-harness` in CI                                  |
-| Config validation      | Runtime panic on missing env var           | Fail-fast at startup via `envy`                                          |
+| Config validation      | Runtime panic on missing env var           | Fail-fast at startup via `std::env::var()`                               |
 | Observability          | Ad-hoc                                     | `init_tracing()` + structured spans per handler                          |
 
 ---

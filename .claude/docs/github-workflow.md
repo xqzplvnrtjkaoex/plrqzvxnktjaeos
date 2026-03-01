@@ -73,7 +73,8 @@ Three types of issues:
 
 **Task issues:** When writing a plan that involves multiple PR units, Claude opens a GitHub
 Issue per unit before implementation begins. Each issue title matches the planned PR scope.
-PRs reference the issue with `closes #N` in the PR body.
+The **dev→master** PR closes the task issue with `closes #N` in the PR body.
+Feature→dev PRs describe the implementation work and do not include `closes #N`.
 
 **Escalation issues:** When implementation reveals something the plan didn't anticipate
 (see §13 in CLAUDE.md), Claude opens an issue describing what was found, pauses work, and

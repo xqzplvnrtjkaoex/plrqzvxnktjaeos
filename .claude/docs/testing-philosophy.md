@@ -35,7 +35,18 @@ assert!(resp.headers().contains_key("x-madome-access-token-expires"));
 For every function/handler:
 
 - Happy path: correct input → correct output (assert the full output, not a subset)
-- Each error path: one test per distinct error case (404, 401, 403, 409, etc.)
+- Each error path: one test per distinct error **kind** — not just per HTTP status.
+  `UserNotFound` and `CredentialNotFound` are both 404 but are separate error cases
+  requiring separate tests. See `.claude/docs/error-kinds.md` for the list of kinds.
+- Error path tests must assert the JSON body (`kind` + `message`) in addition to the
+  status code. Use `axum::body::to_bytes` in async tests:
+  ```rust
+  let resp = app.patch("/auth/token").await;
+  assert_eq!(resp.status(), 401);
+  let body: serde_json::Value = resp.json().await.unwrap();
+  assert_eq!(body["kind"], "INVALID_REFRESH_TOKEN");
+  assert_eq!(body["message"], "invalid refresh token");
+  ```
 - Boundary conditions: min/max values, empty lists, optional fields absent
 
 ---

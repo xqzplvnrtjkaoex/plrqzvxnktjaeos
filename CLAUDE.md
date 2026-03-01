@@ -106,11 +106,11 @@ cargo test --workspace --all-features
 
 Workflows are authored in TypeScript and compiled to YAML using
 [gaji](https://github.com/dodok8/gaji). Do **not** hand-edit files under
-`.github/workflows/` — edit the TypeScript source in `workflows/src/` and run from the
+`.github/workflows/` — edit the TypeScript source in `workflows/` and run from the
 project root (no install needed — `npx` fetches gaji on demand):
 
 ```bash
-npx gaji build        # compile workflows/src/ → .github/workflows/
+npx gaji build        # compile workflows/ → .github/workflows/
 npx gaji dev --watch  # watch mode during development
 ```
 
@@ -124,8 +124,8 @@ Commit both the `.ts` source and the generated YAML together.
 
 - **Rust edition**: 2024 (`rust-version = "1.85"`)
 
-Before writing code, read `.claude/docs/code-conventions.md` —
-it covers all naming rules, test placement, and async patterns used in this codebase.
+**Required before writing any code:** read `.claude/docs/code-conventions.md`.
+It covers all naming rules, test placement, and async patterns. Do not write code without reading it first.
 
 ### Service Architecture (Clean Architecture)
 
@@ -209,26 +209,31 @@ If any test is flaky:
 E2E and smoke tests must be written as **Rust binaries** (e.g. `tools/e2e-smoke/`, `tools/contract-harness/`).
 Shell scripts are not permitted for test harnesses — error messages are unreliable and debugging is painful.
 
-Before writing any test, read `.claude/docs/testing-philosophy.md` for assertion patterns,
-side-effect verification, auth test requirements, and test naming examples.
+**Required before writing any test:** read `.claude/docs/testing-philosophy.md`.
+It covers assertion patterns, side-effect verification, auth requirements, and naming.
+Do not write tests without reading it first.
 
 ### 4.3 Documentation gate (DoD)
+
+**Required before checking docs:** read `.claude/docs/doc-scope.md` — it defines which
+doc categories to check and the scoping rule. Do not skip the doc check without reading it first.
 
 A PR is not "done" until:
 
 - non-obvious behavior/ops changes are documented
 - runbooks/READMEs updated when relevant
 - rollback steps are recorded when the change affects prod safety
+- relevant docs updated (categories and scoping rule: see `.claude/docs/doc-scope.md`)
 
 ---
 
 ## 5) The Team Workflow (Strict Sequence)
 
-Before writing a plan or opening a PR, read `.claude/docs/pr-guide.md` for the full
-workflow sequence, plan template, PR checklist, work size rules, and interface file list.
+**Required before writing a plan or opening a PR:**
+- `.claude/docs/pr-guide.md` — workflow sequence, plan template, PR checklist, work size rules
+- `.claude/docs/github-workflow.md` — branching, `gh` CLI, gaji CI, review, merge strategy
 
-For GitHub-specific mechanics (branching strategy, `gh` CLI commands, gaji CI setup,
-review process, and merge strategy), read `.claude/docs/github-workflow.md`.
+Both are mandatory. Do not create branches, write plans, or open PRs without reading both.
 
 ---
 
@@ -331,7 +336,10 @@ When implementing non-trivial features, write a plan document first in `.claude/
 Every plan **must** include a section that explicitly identifies:
 
 1. **Tests to add or modify** — new tests for the feature, and existing tests that may need updating (e.g. assertions that reference changed output, struct fields, or error messages).
-2. **Docs to add or modify** — user-visible changes (new endpoints, new config options, changed error messages, etc.) require an update to the relevant documentation.
+2. **Docs to add or modify** — identify which docs defined in `.claude/docs/doc-scope.md`
+   are relevant to this change, then check only those. User-visible changes (new endpoints,
+   config options, error messages) require updates; stale rustdoc and utoipa annotations on
+   changed handlers must also be updated.
 
 **In plan mode, always confirm both before calling ExitPlanMode:**
 
@@ -340,7 +348,9 @@ Every plan **must** include a section that explicitly identifies:
 
 Do not treat these as optional — always verify both before finalising a plan.
 
-For simple tasks that don't go through planning, ask the user whether tests or documentation need to be updated after the work is done.
+For simple tasks that don't go through planning: after completing the work, identify which
+docs (per `.claude/docs/doc-scope.md`) are relevant to the change, check those for staleness,
+then report what (if anything) needs updating.
 
 `.claude/plans/*.md` files take precedence over `MIGRATION_PLAN.md`. If a plan file exists
 for the current task, follow it. `MIGRATION_PLAN.md` is the long-horizon roadmap;
@@ -350,15 +360,15 @@ for the current task, follow it. `MIGRATION_PLAN.md` is the long-horizon roadmap
 
 ## 16) External Tool Usage Policy
 
-Before adding or upgrading any crate, API, or CLI dependency,
-read `.claude/docs/external-tools.md`.
+**Required before adding or upgrading any dependency:**
+read `.claude/docs/external-tools.md`. Do not add crates, APIs, or CLI tools without reading it.
 
 ---
 
 ## 17) Documentation Standards
 
-Before writing public API docs or rustdoc comments,
-read `.claude/docs/doc-standards.md`.
+**Required before writing public API docs or rustdoc comments:**
+read `.claude/docs/doc-standards.md`. Do not write docs without reading it first.
 
 ---
 
@@ -480,5 +490,6 @@ and stop all implementation until the Leader responds.
 
 ## 19) Performance Tips
 
-Before optimizing hot paths, read `.claude/docs/performance-tips.md` —
-it collects patterns with measured impact specific to this codebase.
+**Required before optimizing any hot path:**
+read `.claude/docs/performance-tips.md` — measured patterns specific to this codebase.
+Do not optimize without reading it first.

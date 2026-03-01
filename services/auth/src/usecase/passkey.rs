@@ -48,7 +48,7 @@ impl<P: PasskeyRepository> DeletePasskeyUseCase<P> {
     ) -> Result<(), AuthServiceError> {
         let deleted = self.passkeys.delete(credential_id, user_id).await?;
         if !deleted {
-            return Err(AuthServiceError::NotFound);
+            return Err(AuthServiceError::CredentialNotFound);
         }
         Ok(())
     }
@@ -77,7 +77,7 @@ impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> StartRegistration
             .users
             .find_by_id(user_id)
             .await?
-            .ok_or(AuthServiceError::Unauthorized)?;
+            .ok_or(AuthServiceError::UserNotFound)?;
 
         // Build exclude list from existing passkeys.
         let existing = self.passkeys.list_by_user(user_id).await?;
@@ -130,15 +130,15 @@ impl<P: PasskeyRepository, C: PasskeyCache> FinishRegistrationUseCase<P, C> {
             .cache
             .take_registration_state(user_id, registration_id)
             .await?
-            .ok_or(AuthServiceError::Unauthorized)?;
+            .ok_or(AuthServiceError::InvalidSession)?;
 
         let reg_state: PasskeyRegistration =
-            serde_json::from_slice(&state_json).map_err(|_| AuthServiceError::Unauthorized)?;
+            serde_json::from_slice(&state_json).map_err(|_| AuthServiceError::InvalidSession)?;
 
         let passkey = self
             .webauthn
             .finish_passkey_registration(&credential, &reg_state)
-            .map_err(|e| AuthServiceError::BadRequest(e.to_string()))?;
+            .map_err(|_| AuthServiceError::InvalidCredential)?;
 
         let cred_id = passkey.cred_id().to_vec();
         let aaguid = parse_aaguid_from_credential(&credential).unwrap_or(Uuid::nil());
@@ -180,11 +180,11 @@ impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> StartAuthenticati
             .users
             .find_by_email(email)
             .await?
-            .ok_or(AuthServiceError::NotFound)?;
+            .ok_or(AuthServiceError::UserNotFound)?;
 
         let stored = self.passkeys.list_by_user(user.id).await?;
         if stored.is_empty() {
-            return Err(AuthServiceError::NotFound);
+            return Err(AuthServiceError::CredentialNotFound);
         }
         let passkey_list: Vec<Passkey> = stored
             .iter()
@@ -233,16 +233,16 @@ impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache>
             .users
             .find_by_email(email)
             .await?
-            .ok_or(AuthServiceError::NotFound)?;
+            .ok_or(AuthServiceError::UserNotFound)?;
 
         let state_json = self
             .cache
             .take_authentication_state(email, authentication_id)
             .await?
-            .ok_or(AuthServiceError::Unauthorized)?;
+            .ok_or(AuthServiceError::InvalidSession)?;
 
         let auth_state: PasskeyAuthentication =
-            serde_json::from_slice(&state_json).map_err(|_| AuthServiceError::Unauthorized)?;
+            serde_json::from_slice(&state_json).map_err(|_| AuthServiceError::InvalidSession)?;
 
         let stored = self.passkeys.list_by_user(user.id).await?;
         let mut passkey_list: Vec<Passkey> = stored
@@ -253,7 +253,7 @@ impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache>
         let auth_result = self
             .webauthn
             .finish_passkey_authentication(&credential, &auth_state)
-            .map_err(|e| AuthServiceError::BadRequest(e.to_string()))?;
+            .map_err(|_| AuthServiceError::InvalidCredential)?;
 
         // Persist counter updates for any passkey that changed.
         for (pk, record) in passkey_list.iter_mut().zip(stored.iter()) {

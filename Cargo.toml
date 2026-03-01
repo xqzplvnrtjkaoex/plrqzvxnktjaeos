@@ -49,14 +49,11 @@ sea-orm-migration = { version = "1.1" }
 jsonwebtoken = { version = "10.3", features = ["aws_lc_rs"] }
 
 # identifiers
-uuid = { version = "1.21", features = ["v4", "serde"] }
+uuid = { version = "1.21", features = ["v4", "v7", "serde"] }
 
 # error handling
 thiserror = { version = "2.0" }
 anyhow = { version = "1.0" }
-
-# config
-envy = { version = "0.4" }
 
 # tracing / observability
 tracing = { version = "0.1" }

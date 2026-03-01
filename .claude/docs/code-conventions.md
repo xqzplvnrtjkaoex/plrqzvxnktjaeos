@@ -30,6 +30,32 @@ pub auth_port: u16,  // reads AUTH_PORT
 
 ---
 
+## Error Kinds
+
+Every service error type must expose a machine-readable `kind` string and return a JSON
+body. See `.claude/docs/error-kinds.md` for the full standard, naming rules, and kind
+tables per service.
+
+Quick rules:
+- `kind` is `UPPER_SNAKE_CASE`; name the thing that failed, not the HTTP status
+- `message` is `lowercase` from the `#[error("...")]` attribute; human-readable only
+- Log `tracing::error!` only for `Internal(_)` — 4xx are expected client errors
+
+```rust
+impl IntoResponse for MyServiceError {
+    fn into_response(self) -> Response {
+        let status = /* match status */;
+        if let Self::Internal(ref e) = self {
+            tracing::error!(error = %e, kind = "INTERNAL", "internal error");
+        }
+        let body = serde_json::json!({ "kind": self.kind(), "message": self.to_string() });
+        (status, axum::Json(body)).into_response()
+    }
+}
+```
+
+---
+
 ## Env var reading — use std::env::var directly
 
 Do not use the `envy` crate for loading config in new code — it is unmaintained.
@@ -42,5 +68,3 @@ let port: u16 = std::env::var("AUTH_PORT")
     .expect("AUTH_PORT must be a valid port number");
 ```
 
-(The existing `AuthConfig` in `services/auth` uses `envy` via `madome-core`. Refactoring it
-is deferred to a dedicated PR.)

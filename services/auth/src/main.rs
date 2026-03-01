@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use madome_core::config::Config as _;
 use sea_orm::Database;
 use tracing::info;
 use url::Url;

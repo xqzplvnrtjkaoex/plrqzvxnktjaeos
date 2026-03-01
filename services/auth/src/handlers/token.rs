@@ -51,14 +51,14 @@ pub async fn check_token(
     let token_value = jar
         .get(MADOME_ACCESS_TOKEN)
         .map(|c| c.value().to_owned())
-        .ok_or(AuthServiceError::Unauthorized)?;
+        .ok_or(AuthServiceError::InvalidToken)?;
 
     let info = validate_access_token(&token_value, &state.jwt_secret)
-        .map_err(|_| AuthServiceError::Unauthorized)?;
+        .map_err(|_| AuthServiceError::InvalidToken)?;
 
     if let Some(min_role) = q.role {
         if info.user_role < min_role {
-            return Err(AuthServiceError::Unauthorized);
+            return Err(AuthServiceError::InvalidToken);
         }
     }
 
@@ -120,7 +120,7 @@ pub async fn refresh_token(
     let refresh_value = jar
         .get(MADOME_REFRESH_TOKEN)
         .map(|c| c.value().to_owned())
-        .ok_or(AuthServiceError::Unauthorized)?;
+        .ok_or(AuthServiceError::InvalidRefreshToken)?;
 
     let uc = RefreshTokenUseCase {
         users: state.user_repo(),

@@ -70,7 +70,7 @@ pub fn validate_token(token: &str, secret: &str) -> Result<TokenClaims, AuthServ
         &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     )
-    .map_err(|_| AuthServiceError::Unauthorized)?;
+    .map_err(|_| AuthServiceError::InvalidRefreshToken)?;
 
     Ok(data.claims)
 }
@@ -105,13 +105,13 @@ impl<U: UserRepository, A: AuthCodeRepository> CreateTokenUseCase<U, A> {
             .users
             .find_by_email(&input.email)
             .await?
-            .ok_or(AuthServiceError::NotFound)?;
+            .ok_or(AuthServiceError::UserNotFound)?;
 
         let auth_code = self
             .auth_codes
             .find_valid(user.id, &input.code)
             .await?
-            .ok_or(AuthServiceError::NotFound)?;
+            .ok_or(AuthServiceError::InvalidAuthcode)?;
 
         self.auth_codes.mark_used(auth_code.id).await?;
 
@@ -154,13 +154,13 @@ impl<U: UserRepository> RefreshTokenUseCase<U> {
         let user_id = claims
             .sub
             .parse::<Uuid>()
-            .map_err(|_| AuthServiceError::Unauthorized)?;
+            .map_err(|_| AuthServiceError::InvalidRefreshToken)?;
 
         let user = self
             .users
             .find_by_id(user_id)
             .await?
-            .ok_or(AuthServiceError::Unauthorized)?;
+            .ok_or(AuthServiceError::InvalidRefreshToken)?;
 
         let (access_token, access_token_exp) = issue_access_token(&user, &self.jwt_secret)?;
         let refresh_token = issue_refresh_token(&user, &self.jwt_secret)?;

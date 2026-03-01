@@ -57,7 +57,7 @@ pub async fn delete_passkey(
 ) -> Result<StatusCode, AuthServiceError> {
     let credential_id = URL_SAFE_NO_PAD
         .decode(&credential_id_b64)
-        .map_err(|_| AuthServiceError::BadRequest("invalid credential_id encoding".to_owned()))?;
+        .map_err(|_| AuthServiceError::InvalidCredential)?;
 
     let uc = DeletePasskeyUseCase {
         passkeys: state.passkey_repo(),

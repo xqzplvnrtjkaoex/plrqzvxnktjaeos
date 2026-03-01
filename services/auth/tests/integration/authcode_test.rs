@@ -53,8 +53,8 @@ async fn should_return_not_found_when_user_unknown_for_authcode() {
         .await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::NotFound)),
-        "expected NotFound, got {result:?}"
+        matches!(result, Err(AuthServiceError::UserNotFound)),
+        "expected UserNotFound, got {result:?}"
     );
 }
 
@@ -74,8 +74,8 @@ async fn should_return_too_many_requests_when_active_code_limit_reached() {
         .await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::TooManyRequests)),
-        "expected TooManyRequests, got {result:?}"
+        matches!(result, Err(AuthServiceError::TooManyAuthcodes)),
+        "expected TooManyAuthcodes, got {result:?}"
     );
 }
 
@@ -95,7 +95,7 @@ async fn should_return_too_many_requests_when_active_code_count_exceeds_limit() 
         .await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::TooManyRequests)),
-        "expected TooManyRequests, got {result:?}"
+        matches!(result, Err(AuthServiceError::TooManyAuthcodes)),
+        "expected TooManyAuthcodes, got {result:?}"
     );
 }
