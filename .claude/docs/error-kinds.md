@@ -57,6 +57,22 @@ Notes:
 - `InvalidAuthcode` returns 401 (not 404) — prevents confirming whether a user exists.
 - `InvalidCredential` (400) — do not expose WebAuthn internal error detail in `message`.
 
+## UsersServiceError (`services/users`)
+
+| Variant | Kind | HTTP |
+|---------|------|------|
+| `UserNotFound` | `USER_NOT_FOUND` | 404 |
+| `TasteNotFound` | `TASTE_NOT_FOUND` | 404 |
+| `HistoryNotFound` | `HISTORY_NOT_FOUND` | 404 |
+| `BookNotFound` | `BOOK_NOT_FOUND` | 404 |
+| `BookTagNotFound` | `BOOK_TAG_NOT_FOUND` | 404 |
+| `UserAlreadyExists` | `USER_ALREADY_EXISTS` | 409 |
+| `TasteAlreadyExists` | `TASTE_ALREADY_EXISTS` | 409 |
+| `InvalidHandle` | `INVALID_HANDLE` | 400 |
+| `MissingData` | `MISSING_DATA` | 400 |
+| `Forbidden` | `FORBIDDEN` | 403 |
+| `Internal` | `INTERNAL` | 500 |
+
 ## Adding Kinds for a New Service
 
 1. Create `services/{service}/src/error.rs` with a domain-specific error enum.
