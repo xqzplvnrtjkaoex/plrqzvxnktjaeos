@@ -311,7 +311,7 @@ No silent "best guesses" on contract-sensitive or plan-sensitive behavior.
 
 ## 10) Plans
 
-**Active Compat plan**: `.claude/plans/bubbly-puzzling-dewdrop.md` — this plan takes priority over `MIGRATION_PLAN.md` for all implementation decisions during the Compat phase.
+**Active Compat plan**: `.claude/plans/bubbly-puzzling-dewdrop.md` — takes priority over `MIGRATION_PLAN.md` for all implementation decisions during the Compat phase. Other plan files in `.claude/plans/` may be completed or superseded — check the plan's own status before following it.
 
 When implementing non-trivial features, write a plan document first in `.claude/plans/`.
 
