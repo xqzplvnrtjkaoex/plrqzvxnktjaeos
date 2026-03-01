@@ -124,8 +124,8 @@ Commit both the `.ts` source and the generated YAML together.
 
 - **Rust edition**: 2024 (`rust-version = "1.85"`)
 
-Before writing code, read `.claude/docs/code-conventions.md` —
-it covers all naming rules, test placement, and async patterns used in this codebase.
+**Required before writing any code:** read `.claude/docs/code-conventions.md`.
+It covers all naming rules, test placement, and async patterns. Do not write code without reading it first.
 
 ### Service Architecture (Clean Architecture)
 
@@ -209,8 +209,9 @@ If any test is flaky:
 E2E and smoke tests must be written as **Rust binaries** (e.g. `tools/e2e-smoke/`, `tools/contract-harness/`).
 Shell scripts are not permitted for test harnesses — error messages are unreliable and debugging is painful.
 
-Before writing any test, read `.claude/docs/testing-philosophy.md` for assertion patterns,
-side-effect verification, auth test requirements, and test naming examples.
+**Required before writing any test:** read `.claude/docs/testing-philosophy.md`.
+It covers assertion patterns, side-effect verification, auth requirements, and naming.
+Do not write tests without reading it first.
 
 ### 4.3 Documentation gate (DoD)
 
@@ -224,11 +225,11 @@ A PR is not "done" until:
 
 ## 5) The Team Workflow (Strict Sequence)
 
-Before writing a plan or opening a PR, read `.claude/docs/pr-guide.md` for the full
-workflow sequence, plan template, PR checklist, work size rules, and interface file list.
+**Required before writing a plan or opening a PR:**
+- `.claude/docs/pr-guide.md` — workflow sequence, plan template, PR checklist, work size rules
+- `.claude/docs/github-workflow.md` — branching, `gh` CLI, gaji CI, review, merge strategy
 
-For GitHub-specific mechanics (branching strategy, `gh` CLI commands, gaji CI setup,
-review process, and merge strategy), read `.claude/docs/github-workflow.md`.
+Both are mandatory. Do not create branches, write plans, or open PRs without reading both.
 
 ---
 
@@ -350,15 +351,15 @@ for the current task, follow it. `MIGRATION_PLAN.md` is the long-horizon roadmap
 
 ## 16) External Tool Usage Policy
 
-Before adding or upgrading any crate, API, or CLI dependency,
-read `.claude/docs/external-tools.md`.
+**Required before adding or upgrading any dependency:**
+read `.claude/docs/external-tools.md`. Do not add crates, APIs, or CLI tools without reading it.
 
 ---
 
 ## 17) Documentation Standards
 
-Before writing public API docs or rustdoc comments,
-read `.claude/docs/doc-standards.md`.
+**Required before writing public API docs or rustdoc comments:**
+read `.claude/docs/doc-standards.md`. Do not write docs without reading it first.
 
 ---
 
@@ -480,5 +481,6 @@ and stop all implementation until the Leader responds.
 
 ## 19) Performance Tips
 
-Before optimizing hot paths, read `.claude/docs/performance-tips.md` —
-it collects patterns with measured impact specific to this codebase.
+**Required before optimizing any hot path:**
+read `.claude/docs/performance-tips.md` — measured patterns specific to this codebase.
+Do not optimize without reading it first.
