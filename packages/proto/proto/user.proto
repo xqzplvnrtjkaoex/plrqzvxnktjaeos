@@ -53,15 +53,4 @@ message RenewBookRequest {
   uint32 new_book_id = 2;
 }
 
-message CreateNotificationRequest {
-  string user_id = 1;
-  uint32 book_id = 2;
-  repeated BookTag book_tags = 3;
-}
-
-message BookTag {
-  string kind = 1;
-  string name = 2;
-}
-
 message Empty {}

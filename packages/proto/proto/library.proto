@@ -3,11 +3,26 @@ package library;
 
 service LibraryService {
   rpc RenewBook(RenewBookRequest) returns (Empty);
+  rpc GetBook(GetBookRequest) returns (BookResponse);
+  rpc HasBookTag(HasBookTagRequest) returns (HasBookTagResponse);
 }
 
 message RenewBookRequest {
   uint32 old_book_id = 1;
   uint32 new_book_id = 2;
 }
+
+message GetBookRequest { uint32 book_id = 1; }
+
+message BookResponse {
+  bool found = 1;
+}
+
+message HasBookTagRequest {
+  string tag_kind = 1;
+  string tag_name = 2;
+}
+
+message HasBookTagResponse { bool exists = 1; }
 
 message Empty {}
