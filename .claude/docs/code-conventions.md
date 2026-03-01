@@ -18,6 +18,10 @@
   `resp`, `idx`). Single-letter variables are only acceptable as `_` (unused) or
   `i`/`j` in numeric loops. Closure params in `.map()` / `.filter()` chains must
   be readable: `|taste|` not `|t|`, `|model|` not `|m|`.
+- **sea-orm entity variables**: Name variables after the schema module in singular
+  form, not after the generic type. Write `let mut taste_book = row.into_active_model();`,
+  not `let mut active_model = ...` or `let mut am = ...`. The module name
+  (`taste_books`, `fcm_tokens`, etc.) gives the entity name; use its singular form.
 
 ---
 

@@ -1,68 +1,103 @@
-# Plan: Destructure `PageRequest` after `clamped()` + add convention
+# Plan: Fix `am` naming + convert history upsert to ON CONFLICT
 
 ## Context
 
-`page.page` and `page.per_page` reads awkwardly. After `let page = page.clamped();`, all
-field access becomes `page.page` — the stuttering name makes code harder to scan. Destructuring
-immediately (`let PageRequest { per_page, page } = page.clamped();`) yields clean `per_page`
-and `page` locals. Add a convention rule and fix all 5 existing occurrences.
+Two issues in `services/users/src/infra/db.rs`:
+
+1. **`am` abbreviation**: 4 occurrences of `let mut am = row.into_active_model();` violate the
+   naming convention. Variable should be named after the schema module (singular form).
+
+2. **History upsert is two queries**: `upsert()` does SELECT + match (INSERT or UPDATE) — this is
+   a race-condition-prone pattern and unnecessarily verbose. sea-orm supports
+   `INSERT ... ON CONFLICT DO UPDATE` via `OnConflict`, collapsing it to one atomic query.
+
+**Not converting taste/fcm upserts**: `upsert_book` and `upsert_book_tag` return `bool`
+(whether the value changed) with a `row.is_dislike == taste.is_dislike` guard. `fcm_token::upsert`
+has a `user_id` ownership guard. Both have business logic that doesn't map cleanly to ON CONFLICT.
 
 ---
 
 ## Changes
 
-### 1. `.claude/docs/code-conventions.md` — add destructuring rule
+### 1. Rename `am` → entity-derived name (3 occurrences)
 
-Insert after the "Generic bounds" bullet (line 11), before "Naming clarity":
+Name after the schema module (singular form), not the generic type:
 
-```markdown
-- **Struct field access**: When a field name stutters with the variable name
-  (e.g. `page.page`), destructure immediately instead of accessing fields.
-  Write `let PageRequest { per_page, page } = page.clamped();`, not
-  `let page = page.clamped(); ... page.page`.
-```
+| Line | Module | `am` → |
+|------|--------|--------|
+| 294 | `taste_books` | `taste_book` |
+| 327 | `taste_book_tags` | `taste_book_tag` |
+| 670 | `fcm_tokens` | `fcm_token` |
 
-### 2. `services/users/src/infra/db.rs` — destructure in 5 list methods
+Line 455 (`history_books`) is removed entirely by step 2.
 
-Each occurrence follows the same mechanical change:
+### 2. Rewrite history `upsert` to single ON CONFLICT query
 
-**Before:**
+**Before** (lines 447–474):
 ```rust
-let page = page.clamped();
-// ... later:
-.offset(((page.page - 1) * page.per_page) as u64)
-.limit(page.per_page as u64)
+async fn upsert(&self, history: &HistoryBook) -> Result<(), UsersServiceError> {
+    let existing = history_books::Entity::find_by_id((history.user_id, history.book_id))
+        .one(&self.db)
+        .await
+        .context("find history book for upsert")?;
+    match existing {
+        Some(row) => {
+            let mut am = row.into_active_model();
+            am.page = Set(history.page);
+            am.updated_at = Set(Utc::now());
+            am.update(&self.db).await.context("update history book")?;
+        }
+        None => {
+            history_books::ActiveModel { ... }
+                .insert(&self.db).await.context("insert history book")?;
+        }
+    }
+    Ok(())
+}
 ```
 
 **After:**
 ```rust
-let PageRequest { per_page, page } = page.clamped();
-// ... later:
-.offset(((page - 1) * per_page) as u64)
-.limit(per_page as u64)
+async fn upsert(&self, history: &HistoryBook) -> Result<(), UsersServiceError> {
+    let history_book = history_books::ActiveModel {
+        user_id: Set(history.user_id),
+        book_id: Set(history.book_id),
+        page: Set(history.page),
+        created_at: Set(history.created_at),
+        updated_at: Set(history.updated_at),
+    };
+    history_books::Entity::insert(history_book)
+        .on_conflict(
+            OnConflict::columns([
+                history_books::Column::UserId,
+                history_books::Column::BookId,
+            ])
+            .update_columns([
+                history_books::Column::Page,
+                history_books::Column::UpdatedAt,
+            ])
+            .to_owned(),
+        )
+        .exec_without_returning(&self.db)
+        .await
+        .context("upsert history book")?;
+    Ok(())
+}
 ```
 
-5 occurrences (line numbers approximate):
+### 3. Add import
 
-| Method | Line | Cast type |
-|--------|------|-----------|
-| `list_all` (raw SQL) | 111 | `as i64` (separate `offset`/`limit` vars) |
-| `list_books` | 190 | `as u64` |
-| `list_book_tags` | 218 | `as u64` |
-| `list` (history) | 408 | `as u64` |
-| `list` (notification) | 511 | `as u64` |
+Add `sea_query::OnConflict` to the `sea_orm` import block (line 3).
 
-`list_all` is slightly different — it uses intermediate `offset`/`limit` variables:
-```rust
-// Before:
-let page = page.clamped();
-let offset = ((page.page - 1) * page.per_page) as i64;
-let limit = page.per_page as i64;
+### 4. `.claude/docs/code-conventions.md` — add sea-orm naming rule
 
-// After:
-let PageRequest { per_page, page } = page.clamped();
-let offset = ((page - 1) * per_page) as i64;
-let limit = per_page as i64;
+Insert after the "Naming clarity" bullet (after line 20), before the `---`:
+
+```markdown
+- **sea-orm entity variables**: Name variables after the schema module in singular
+  form, not after the generic type. Write `let mut taste_book = row.into_active_model();`,
+  not `let mut active_model = ...` or `let mut am = ...`. The module name
+  (`taste_books`, `fcm_tokens`, etc.) gives the entity name; use its singular form.
 ```
 
 ---
@@ -71,8 +106,8 @@ let limit = per_page as i64;
 
 | File | Action |
 |------|--------|
-| `.claude/docs/code-conventions.md` | Add destructuring convention |
-| `services/users/src/infra/db.rs` | Destructure `PageRequest` in 5 methods |
+| `services/users/src/infra/db.rs` | Rename `am` (3 places) + rewrite history upsert + add import |
+| `.claude/docs/code-conventions.md` | Add sea-orm entity variable naming rule |
 
 ---
 

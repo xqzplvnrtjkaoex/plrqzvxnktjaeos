@@ -3,6 +3,7 @@ use chrono::{Duration, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
     IntoActiveModel as _, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
+    sea_query::OnConflict,
 };
 use uuid::Uuid;
 
@@ -291,9 +292,12 @@ impl TasteRepository for DbTasteRepository {
         match existing {
             Some(row) if row.is_dislike == taste.is_dislike => Ok(false),
             Some(row) => {
-                let mut am = row.into_active_model();
-                am.is_dislike = Set(taste.is_dislike);
-                am.update(&self.db).await.context("update taste book")?;
+                let mut taste_book = row.into_active_model();
+                taste_book.is_dislike = Set(taste.is_dislike);
+                taste_book
+                    .update(&self.db)
+                    .await
+                    .context("update taste book")?;
                 Ok(true)
             }
             None => {
@@ -324,9 +328,12 @@ impl TasteRepository for DbTasteRepository {
         match existing {
             Some(row) if row.is_dislike == taste.is_dislike => Ok(false),
             Some(row) => {
-                let mut am = row.into_active_model();
-                am.is_dislike = Set(taste.is_dislike);
-                am.update(&self.db).await.context("update taste book tag")?;
+                let mut taste_book_tag = row.into_active_model();
+                taste_book_tag.is_dislike = Set(taste.is_dislike);
+                taste_book_tag
+                    .update(&self.db)
+                    .await
+                    .context("update taste book tag")?;
                 Ok(true)
             }
             None => {
@@ -445,31 +452,25 @@ impl HistoryRepository for DbHistoryRepository {
     }
 
     async fn upsert(&self, history: &HistoryBook) -> Result<(), UsersServiceError> {
-        let existing = history_books::Entity::find_by_id((history.user_id, history.book_id))
-            .one(&self.db)
+        let history_book = history_books::ActiveModel {
+            user_id: Set(history.user_id),
+            book_id: Set(history.book_id),
+            page: Set(history.page),
+            created_at: Set(history.created_at),
+            updated_at: Set(history.updated_at),
+        };
+        history_books::Entity::insert(history_book)
+            .on_conflict(
+                OnConflict::columns([history_books::Column::UserId, history_books::Column::BookId])
+                    .update_columns([
+                        history_books::Column::Page,
+                        history_books::Column::UpdatedAt,
+                    ])
+                    .to_owned(),
+            )
+            .exec_without_returning(&self.db)
             .await
-            .context("find history book for upsert")?;
-
-        match existing {
-            Some(row) => {
-                let mut am = row.into_active_model();
-                am.page = Set(history.page);
-                am.updated_at = Set(Utc::now());
-                am.update(&self.db).await.context("update history book")?;
-            }
-            None => {
-                history_books::ActiveModel {
-                    user_id: Set(history.user_id),
-                    book_id: Set(history.book_id),
-                    page: Set(history.page),
-                    created_at: Set(history.created_at),
-                    updated_at: Set(history.updated_at),
-                }
-                .insert(&self.db)
-                .await
-                .context("insert history book")?;
-            }
-        }
+            .context("upsert history book")?;
         Ok(())
     }
 
@@ -667,10 +668,13 @@ impl FcmTokenRepository for DbFcmTokenRepository {
 
         match existing {
             Some(row) if row.user_id == user_id => {
-                let mut am = row.into_active_model();
-                am.token = Set(token.token.clone());
-                am.updated_at = Set(Utc::now());
-                am.update(&self.db).await.context("update fcm token")?;
+                let mut fcm_token = row.into_active_model();
+                fcm_token.token = Set(token.token.clone());
+                fcm_token.updated_at = Set(Utc::now());
+                fcm_token
+                    .update(&self.db)
+                    .await
+                    .context("update fcm token")?;
             }
             Some(_) => {
                 // user_id mismatch — ignore silently (guard)
