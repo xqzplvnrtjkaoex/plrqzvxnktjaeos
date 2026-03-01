@@ -2009,6 +2009,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "chrono",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -2057,6 +2058,25 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
+ "uuid",
+]
+
+[[package]]
+name = "madome-users-migration"
+version = "0.1.0"
+dependencies = [
+ "madome-users-schema",
+ "sea-orm-migration",
+ "tokio",
+]
+
+[[package]]
+name = "madome-users-schema"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "sea-orm",
+ "serde",
  "uuid",
 ]
 

@@ -9,6 +9,8 @@ members = [
     "services/auth",
     "services/auth/schema",
     "services/auth/migration",
+    "services/users/schema",
+    "services/users/migration",
 ]
 resolver = "2"
 
@@ -84,6 +86,9 @@ webauthn-rs = { version = "0.5", features = [
 
 # Docker
 bollard = { version = "0.20" }
+
+# query string
+serde_qs = { version = "1.0" }
 
 # misc
 bytes = { version = "1.11" }
