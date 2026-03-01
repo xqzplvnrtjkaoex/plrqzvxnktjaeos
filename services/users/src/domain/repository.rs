@@ -139,9 +139,6 @@ pub trait FcmTokenRepository: Send + Sync {
 /// Port for querying the library service (book/tag existence).
 pub trait LibraryQueryPort: Send + Sync {
     async fn has_book(&self, book_id: i32) -> Result<bool, UsersServiceError>;
-    async fn has_book_tag(
-        &self,
-        tag_kind: &str,
-        tag_name: &str,
-    ) -> Result<bool, UsersServiceError>;
+    async fn has_book_tag(&self, tag_kind: &str, tag_name: &str)
+    -> Result<bool, UsersServiceError>;
 }

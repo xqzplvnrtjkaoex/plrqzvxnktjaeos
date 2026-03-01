@@ -1,4 +1,8 @@
-use axum::{Json, extract::{Path, State}, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use serde::{Deserialize, Serialize};
 
 use madome_auth_types::identity::IdentityHeaders;
@@ -9,8 +13,8 @@ use crate::state::AppState;
 use crate::usecase::taste::{
     CreateTasteBookInput, CreateTasteBookTagInput, CreateTasteBookTagUseCase,
     CreateTasteBookUseCase, DeleteTasteBookTagUseCase, DeleteTasteBookUseCase,
-    GetTasteBookTagUseCase, GetTasteBookUseCase, GetTasteBookTagsUseCase,
-    GetTasteBooksUseCase, GetTastesByBookIdsUseCase, GetTastesUseCase,
+    GetTasteBookTagUseCase, GetTasteBookTagsUseCase, GetTasteBookUseCase, GetTasteBooksUseCase,
+    GetTastesByBookIdsUseCase, GetTastesUseCase,
 };
 
 // ── Response types ───────────────────────────────────────────────────────────
@@ -173,9 +177,7 @@ pub async fn get_taste(
 ) -> Result<Json<TasteResponse>, UsersServiceError> {
     match kind.as_str() {
         "book" => {
-            let book_id: i32 = value
-                .parse()
-                .map_err(|_| UsersServiceError::MissingData)?;
+            let book_id: i32 = value.parse().map_err(|_| UsersServiceError::MissingData)?;
             let uc = GetTasteBookUseCase {
                 repo: state.taste_repo(),
             };
@@ -191,9 +193,7 @@ pub async fn get_taste(
             let uc = GetTasteBookTagUseCase {
                 repo: state.taste_repo(),
             };
-            let taste = uc
-                .execute(identity.user_id, &tag_kind, &tag_name)
-                .await?;
+            let taste = uc.execute(identity.user_id, &tag_kind, &tag_name).await?;
             Ok(Json(TasteResponse::BookTag {
                 tag_kind: taste.tag_kind,
                 tag_name: taste.tag_name,
@@ -241,14 +241,20 @@ pub async fn create_taste(
     Json(body): Json<CreateTasteRequest>,
 ) -> Result<StatusCode, UsersServiceError> {
     match body {
-        CreateTasteRequest::Book { book_id, is_dislike } => {
+        CreateTasteRequest::Book {
+            book_id,
+            is_dislike,
+        } => {
             let uc = CreateTasteBookUseCase {
                 repo: state.taste_repo(),
                 library: state.library_client(),
             };
             uc.execute(
                 identity.user_id,
-                CreateTasteBookInput { book_id, is_dislike },
+                CreateTasteBookInput {
+                    book_id,
+                    is_dislike,
+                },
             )
             .await?;
         }
@@ -296,10 +302,7 @@ pub async fn delete_taste(
             };
             uc.execute(identity.user_id, book_id).await?;
         }
-        DeleteTasteRequest::BookTag {
-            tag_kind,
-            tag_name,
-        } => {
+        DeleteTasteRequest::BookTag { tag_kind, tag_name } => {
             let uc = DeleteTasteBookTagUseCase {
                 repo: state.taste_repo(),
             };

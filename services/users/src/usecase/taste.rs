@@ -203,11 +203,7 @@ pub struct DeleteTasteBookUseCase<R: TasteRepository> {
 }
 
 impl<R: TasteRepository> DeleteTasteBookUseCase<R> {
-    pub async fn execute(
-        &self,
-        user_id: Uuid,
-        book_id: i32,
-    ) -> Result<(), UsersServiceError> {
+    pub async fn execute(&self, user_id: Uuid, book_id: i32) -> Result<(), UsersServiceError> {
         let deleted = self.repo.delete_book(user_id, book_id).await?;
         if !deleted {
             return Err(UsersServiceError::TasteNotFound);
@@ -229,7 +225,10 @@ impl<R: TasteRepository> DeleteTasteBookTagUseCase<R> {
         tag_kind: &str,
         tag_name: &str,
     ) -> Result<(), UsersServiceError> {
-        let deleted = self.repo.delete_book_tag(user_id, tag_kind, tag_name).await?;
+        let deleted = self
+            .repo
+            .delete_book_tag(user_id, tag_kind, tag_name)
+            .await?;
         if !deleted {
             return Err(UsersServiceError::TasteNotFound);
         }
@@ -300,10 +299,7 @@ mod tests {
         async fn upsert_book(&self, _taste: &TasteBook) -> Result<bool, UsersServiceError> {
             Ok(self.upsert_returns)
         }
-        async fn upsert_book_tag(
-            &self,
-            _taste: &TasteBookTag,
-        ) -> Result<bool, UsersServiceError> {
+        async fn upsert_book_tag(&self, _taste: &TasteBookTag) -> Result<bool, UsersServiceError> {
             Ok(self.upsert_returns)
         }
         async fn delete_book(

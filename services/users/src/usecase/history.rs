@@ -79,11 +79,7 @@ pub struct DeleteHistoryUseCase<R: HistoryRepository> {
 }
 
 impl<R: HistoryRepository> DeleteHistoryUseCase<R> {
-    pub async fn execute(
-        &self,
-        user_id: Uuid,
-        book_id: i32,
-    ) -> Result<(), UsersServiceError> {
+    pub async fn execute(&self, user_id: Uuid, book_id: i32) -> Result<(), UsersServiceError> {
         let deleted = self.repo.delete(user_id, book_id).await?;
         if !deleted {
             return Err(UsersServiceError::HistoryNotFound);
@@ -120,11 +116,7 @@ mod tests {
         async fn upsert(&self, _history: &HistoryBook) -> Result<(), UsersServiceError> {
             Ok(())
         }
-        async fn delete(
-            &self,
-            _user_id: Uuid,
-            _book_id: i32,
-        ) -> Result<bool, UsersServiceError> {
+        async fn delete(&self, _user_id: Uuid, _book_id: i32) -> Result<bool, UsersServiceError> {
             Ok(self.delete_returns)
         }
     }

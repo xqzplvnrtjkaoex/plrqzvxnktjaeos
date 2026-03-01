@@ -25,10 +25,7 @@ pub struct UsersGrpcServer {
 
 #[tonic::async_trait]
 impl UserService for UsersGrpcServer {
-    async fn get_user(
-        &self,
-        request: Request<GetUserRequest>,
-    ) -> Result<Response<User>, Status> {
+    async fn get_user(&self, request: Request<GetUserRequest>) -> Result<Response<User>, Status> {
         let user_id = request
             .into_inner()
             .user_id

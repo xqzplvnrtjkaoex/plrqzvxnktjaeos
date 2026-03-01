@@ -210,24 +210,48 @@ mod tests {
 
     #[test]
     fn should_parse_taste_sort_from_kebab() {
-        assert!(matches!(TasteSortBy::from_kebab("created-at-desc"), Some(TasteSortBy::CreatedAt(Sort::Desc))));
-        assert!(matches!(TasteSortBy::from_kebab("created-at-asc"), Some(TasteSortBy::CreatedAt(Sort::Asc))));
-        assert!(matches!(TasteSortBy::from_kebab("random"), Some(TasteSortBy::Random)));
+        assert!(matches!(
+            TasteSortBy::from_kebab("created-at-desc"),
+            Some(TasteSortBy::CreatedAt(Sort::Desc))
+        ));
+        assert!(matches!(
+            TasteSortBy::from_kebab("created-at-asc"),
+            Some(TasteSortBy::CreatedAt(Sort::Asc))
+        ));
+        assert!(matches!(
+            TasteSortBy::from_kebab("random"),
+            Some(TasteSortBy::Random)
+        ));
         assert!(TasteSortBy::from_kebab("invalid").is_none());
     }
 
     #[test]
     fn should_parse_history_sort_from_kebab() {
-        assert!(matches!(HistorySortBy::from_kebab("updated-at-desc"), Some(HistorySortBy::UpdatedAt(Sort::Desc))));
-        assert!(matches!(HistorySortBy::from_kebab("created-at-asc"), Some(HistorySortBy::CreatedAt(Sort::Asc))));
-        assert!(matches!(HistorySortBy::from_kebab("random"), Some(HistorySortBy::Random)));
+        assert!(matches!(
+            HistorySortBy::from_kebab("updated-at-desc"),
+            Some(HistorySortBy::UpdatedAt(Sort::Desc))
+        ));
+        assert!(matches!(
+            HistorySortBy::from_kebab("created-at-asc"),
+            Some(HistorySortBy::CreatedAt(Sort::Asc))
+        ));
+        assert!(matches!(
+            HistorySortBy::from_kebab("random"),
+            Some(HistorySortBy::Random)
+        ));
         assert!(HistorySortBy::from_kebab("invalid").is_none());
     }
 
     #[test]
     fn should_parse_notification_sort_from_kebab() {
-        assert!(matches!(NotificationSortBy::from_kebab("created-at-desc"), Some(NotificationSortBy::CreatedAt(Sort::Desc))));
-        assert!(matches!(NotificationSortBy::from_kebab("created-at-asc"), Some(NotificationSortBy::CreatedAt(Sort::Asc))));
+        assert!(matches!(
+            NotificationSortBy::from_kebab("created-at-desc"),
+            Some(NotificationSortBy::CreatedAt(Sort::Desc))
+        ));
+        assert!(matches!(
+            NotificationSortBy::from_kebab("created-at-asc"),
+            Some(NotificationSortBy::CreatedAt(Sort::Asc))
+        ));
         assert!(NotificationSortBy::from_kebab("random").is_none());
     }
 }

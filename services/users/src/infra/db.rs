@@ -2,8 +2,7 @@ use anyhow::Context as _;
 use chrono::{Duration, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    IntoActiveModel as _, QueryFilter, QueryOrder, QuerySelect,
-    TransactionTrait,
+    IntoActiveModel as _, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
 use uuid::Uuid;
 
@@ -14,8 +13,8 @@ use madome_users_schema::{
 };
 
 use crate::domain::repository::{
-    FcmTokenRepository, HistoryRepository, NotificationRepository, RenewBookPort,
-    TasteRepository, UserRepository,
+    FcmTokenRepository, HistoryRepository, NotificationRepository, RenewBookPort, TasteRepository,
+    UserRepository,
 };
 use crate::domain::types::{
     FcmToken, HistoryBook, HistorySortBy, NotificationBook, NotificationSortBy, Taste, TasteBook,
@@ -72,7 +71,9 @@ impl UserRepository for DbUserRepository {
             am.handle = Set(h.to_owned());
         }
         am.updated_at = Set(Utc::now());
-        am.update(&self.db).await.context("update user name/handle")?;
+        am.update(&self.db)
+            .await
+            .context("update user name/handle")?;
         Ok(())
     }
 }
@@ -191,12 +192,8 @@ impl TasteRepository for DbTasteRepository {
             q = q.filter(taste_books::Column::IsDislike.eq(d));
         }
         q = match sort_by {
-            TasteSortBy::CreatedAt(Sort::Desc) => {
-                q.order_by_desc(taste_books::Column::CreatedAt)
-            }
-            TasteSortBy::CreatedAt(Sort::Asc) => {
-                q.order_by_asc(taste_books::Column::CreatedAt)
-            }
+            TasteSortBy::CreatedAt(Sort::Desc) => q.order_by_desc(taste_books::Column::CreatedAt),
+            TasteSortBy::CreatedAt(Sort::Asc) => q.order_by_asc(taste_books::Column::CreatedAt),
             TasteSortBy::Random => q,
         };
         let models = q
@@ -225,9 +222,7 @@ impl TasteRepository for DbTasteRepository {
             TasteSortBy::CreatedAt(Sort::Desc) => {
                 q.order_by_desc(taste_book_tags::Column::CreatedAt)
             }
-            TasteSortBy::CreatedAt(Sort::Asc) => {
-                q.order_by_asc(taste_book_tags::Column::CreatedAt)
-            }
+            TasteSortBy::CreatedAt(Sort::Asc) => q.order_by_asc(taste_book_tags::Column::CreatedAt),
             TasteSortBy::Random => q,
         };
         let models = q
@@ -326,9 +321,7 @@ impl TasteRepository for DbTasteRepository {
             Some(row) => {
                 let mut am = row.into_active_model();
                 am.is_dislike = Set(taste.is_dislike);
-                am.update(&self.db)
-                    .await
-                    .context("update taste book tag")?;
+                am.update(&self.db).await.context("update taste book tag")?;
                 Ok(true)
             }
             None => {
@@ -408,21 +401,16 @@ impl HistoryRepository for DbHistoryRepository {
         page: PageRequest,
     ) -> Result<Vec<HistoryBook>, UsersServiceError> {
         let page = page.clamped();
-        let mut q =
-            history_books::Entity::find().filter(history_books::Column::UserId.eq(user_id));
+        let mut q = history_books::Entity::find().filter(history_books::Column::UserId.eq(user_id));
         q = match sort_by {
             HistorySortBy::CreatedAt(Sort::Desc) => {
                 q.order_by_desc(history_books::Column::CreatedAt)
             }
-            HistorySortBy::CreatedAt(Sort::Asc) => {
-                q.order_by_asc(history_books::Column::CreatedAt)
-            }
+            HistorySortBy::CreatedAt(Sort::Asc) => q.order_by_asc(history_books::Column::CreatedAt),
             HistorySortBy::UpdatedAt(Sort::Desc) => {
                 q.order_by_desc(history_books::Column::UpdatedAt)
             }
-            HistorySortBy::UpdatedAt(Sort::Asc) => {
-                q.order_by_asc(history_books::Column::UpdatedAt)
-            }
+            HistorySortBy::UpdatedAt(Sort::Asc) => q.order_by_asc(history_books::Column::UpdatedAt),
             HistorySortBy::Random => q,
         };
         let models = q
@@ -457,9 +445,7 @@ impl HistoryRepository for DbHistoryRepository {
                 let mut am = row.into_active_model();
                 am.page = Set(history.page);
                 am.updated_at = Set(Utc::now());
-                am.update(&self.db)
-                    .await
-                    .context("update history book")?;
+                am.update(&self.db).await.context("update history book")?;
             }
             None => {
                 history_books::ActiveModel {
@@ -537,10 +523,7 @@ impl NotificationRepository for DbNotificationRepository {
                 .all(&self.db)
                 .await
                 .context("list notification book tags")?;
-            let book_tags = tags
-                .into_iter()
-                .map(|t| (t.tag_kind, t.tag_name))
-                .collect();
+            let book_tags = tags.into_iter().map(|t| (t.tag_kind, t.tag_name)).collect();
             results.push(NotificationBook {
                 id: m.id,
                 user_id: m.user_id,
@@ -607,9 +590,7 @@ impl RenewBookPort for DbRenewBookPort {
                                 sea_orm::sea_query::Query::select()
                                     .column(taste_books::Column::UserId)
                                     .from(taste_books::Entity)
-                                    .and_where(
-                                        Expr::col(taste_books::Column::BookId).eq(new_id),
-                                    )
+                                    .and_where(Expr::col(taste_books::Column::BookId).eq(new_id))
                                     .to_owned(),
                             ),
                         )
@@ -629,9 +610,7 @@ impl RenewBookPort for DbRenewBookPort {
                                 sea_orm::sea_query::Query::select()
                                     .column(history_books::Column::UserId)
                                     .from(history_books::Entity)
-                                    .and_where(
-                                        Expr::col(history_books::Column::BookId).eq(new_id),
-                                    )
+                                    .and_where(Expr::col(history_books::Column::BookId).eq(new_id))
                                     .to_owned(),
                             ),
                         )

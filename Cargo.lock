@@ -704,6 +704,8 @@ dependencies = [
  "futures",
  "madome-auth",
  "madome-auth-migration",
+ "madome-users",
+ "madome-users-migration",
  "reqwest",
  "sea-orm",
  "sea-orm-migration",

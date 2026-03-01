@@ -30,10 +30,7 @@ pub struct CreateNotificationUseCase<R: NotificationRepository> {
 }
 
 impl<R: NotificationRepository> CreateNotificationUseCase<R> {
-    pub async fn execute(
-        &self,
-        notification: NotificationBook,
-    ) -> Result<(), UsersServiceError> {
+    pub async fn execute(&self, notification: NotificationBook) -> Result<(), UsersServiceError> {
         self.repo.create(&notification).await
     }
 }

@@ -76,7 +76,12 @@ mod tests {
     use axum::body::to_bytes;
     use axum::response::IntoResponse;
 
-    async fn assert_error(error: UsersServiceError, expected_status: StatusCode, expected_kind: &str, expected_message: &str) {
+    async fn assert_error(
+        error: UsersServiceError,
+        expected_status: StatusCode,
+        expected_kind: &str,
+        expected_message: &str,
+    ) {
         let resp = error.into_response();
         assert_eq!(resp.status(), expected_status);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -87,56 +92,122 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_user_not_found() {
-        assert_error(UsersServiceError::UserNotFound, StatusCode::NOT_FOUND, "USER_NOT_FOUND", "user not found").await;
+        assert_error(
+            UsersServiceError::UserNotFound,
+            StatusCode::NOT_FOUND,
+            "USER_NOT_FOUND",
+            "user not found",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_taste_not_found() {
-        assert_error(UsersServiceError::TasteNotFound, StatusCode::NOT_FOUND, "TASTE_NOT_FOUND", "taste not found").await;
+        assert_error(
+            UsersServiceError::TasteNotFound,
+            StatusCode::NOT_FOUND,
+            "TASTE_NOT_FOUND",
+            "taste not found",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_history_not_found() {
-        assert_error(UsersServiceError::HistoryNotFound, StatusCode::NOT_FOUND, "HISTORY_NOT_FOUND", "history not found").await;
+        assert_error(
+            UsersServiceError::HistoryNotFound,
+            StatusCode::NOT_FOUND,
+            "HISTORY_NOT_FOUND",
+            "history not found",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_book_not_found() {
-        assert_error(UsersServiceError::BookNotFound, StatusCode::NOT_FOUND, "BOOK_NOT_FOUND", "book not found").await;
+        assert_error(
+            UsersServiceError::BookNotFound,
+            StatusCode::NOT_FOUND,
+            "BOOK_NOT_FOUND",
+            "book not found",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_book_tag_not_found() {
-        assert_error(UsersServiceError::BookTagNotFound, StatusCode::NOT_FOUND, "BOOK_TAG_NOT_FOUND", "book tag not found").await;
+        assert_error(
+            UsersServiceError::BookTagNotFound,
+            StatusCode::NOT_FOUND,
+            "BOOK_TAG_NOT_FOUND",
+            "book tag not found",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_user_already_exists() {
-        assert_error(UsersServiceError::UserAlreadyExists, StatusCode::CONFLICT, "USER_ALREADY_EXISTS", "user already exists").await;
+        assert_error(
+            UsersServiceError::UserAlreadyExists,
+            StatusCode::CONFLICT,
+            "USER_ALREADY_EXISTS",
+            "user already exists",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_taste_already_exists() {
-        assert_error(UsersServiceError::TasteAlreadyExists, StatusCode::CONFLICT, "TASTE_ALREADY_EXISTS", "taste already exists").await;
+        assert_error(
+            UsersServiceError::TasteAlreadyExists,
+            StatusCode::CONFLICT,
+            "TASTE_ALREADY_EXISTS",
+            "taste already exists",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_invalid_handle() {
-        assert_error(UsersServiceError::InvalidHandle, StatusCode::BAD_REQUEST, "INVALID_HANDLE", "invalid handle").await;
+        assert_error(
+            UsersServiceError::InvalidHandle,
+            StatusCode::BAD_REQUEST,
+            "INVALID_HANDLE",
+            "invalid handle",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_missing_data() {
-        assert_error(UsersServiceError::MissingData, StatusCode::BAD_REQUEST, "MISSING_DATA", "missing data").await;
+        assert_error(
+            UsersServiceError::MissingData,
+            StatusCode::BAD_REQUEST,
+            "MISSING_DATA",
+            "missing data",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_forbidden() {
-        assert_error(UsersServiceError::Forbidden, StatusCode::FORBIDDEN, "FORBIDDEN", "forbidden").await;
+        assert_error(
+            UsersServiceError::Forbidden,
+            StatusCode::FORBIDDEN,
+            "FORBIDDEN",
+            "forbidden",
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn should_return_internal() {
-        assert_error(UsersServiceError::Internal(anyhow::anyhow!("db error")), StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL", "internal error").await;
+        assert_error(
+            UsersServiceError::Internal(anyhow::anyhow!("db error")),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL",
+            "internal error",
+        )
+        .await;
     }
 }

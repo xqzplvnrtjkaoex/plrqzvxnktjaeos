@@ -24,18 +24,13 @@ async fn main() {
         .await
         .expect("failed to connect to library gRPC");
 
-    let state = AppState {
-        db,
-        library_client,
-    };
+    let state = AppState { db, library_client };
 
     // Spawn gRPC server
     let grpc_state = state.clone();
     let grpc_addr = format!("0.0.0.0:{}", config.users_grpc_port);
     tokio::spawn(async move {
-        let server = UsersGrpcServer {
-            state: grpc_state,
-        };
+        let server = UsersGrpcServer { state: grpc_state };
         info!("users gRPC server listening on {grpc_addr}");
         tonic::transport::Server::builder()
             .add_service(UserServiceServer::new(server.clone()))

@@ -26,9 +26,7 @@ pub async fn run(infra: &InfraUrls, workspace_root: &Path) -> Result<bool> {
 
     let state = AppState {
         db,
-        library_client: madome_users::infra::grpc::GrpcLibraryClient::lazy(
-            "http://127.0.0.1:0",
-        ),
+        library_client: madome_users::infra::grpc::GrpcLibraryClient::lazy("http://127.0.0.1:0"),
     };
     tokio::spawn(async move {
         axum::serve(listener, build_router(state)).await.unwrap();

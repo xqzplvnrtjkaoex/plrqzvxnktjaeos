@@ -1,4 +1,8 @@
-use axum::{Json, extract::{Path, State}, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use serde::{Deserialize, Serialize};
 
 use madome_auth_types::identity::IdentityHeaders;
@@ -81,9 +85,7 @@ pub async fn get_history(
 ) -> Result<Json<HistoryResponse>, UsersServiceError> {
     match kind.as_str() {
         "book" => {
-            let book_id: i32 = value
-                .parse()
-                .map_err(|_| UsersServiceError::MissingData)?;
+            let book_id: i32 = value.parse().map_err(|_| UsersServiceError::MissingData)?;
             let uc = GetHistoryUseCase {
                 repo: state.history_repo(),
             };

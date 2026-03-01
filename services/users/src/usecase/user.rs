@@ -78,11 +78,7 @@ impl<R: UserRepository> UpdateUserUseCase<R> {
             }
         }
         self.repo
-            .update_name_handle(
-                user_id,
-                input.name.as_deref(),
-                input.handle.as_deref(),
-            )
+            .update_name_handle(user_id, input.name.as_deref(), input.handle.as_deref())
             .await
     }
 }
