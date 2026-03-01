@@ -1,7 +1,8 @@
 //! Contract fixture format and loader.
 //!
 //! Each fixture file at `contracts/http/{service}/{id}.json` describes one HTTP
-//! assertion: the request to send and the expected response status.
+//! assertion: the request to send and the expected response (status, headers, and
+//! optionally body).
 
 use std::collections::HashMap;
 use std::fs;
@@ -39,6 +40,9 @@ pub struct Expect {
     /// Expected response headers (subset match — extra headers are allowed).
     #[serde(default)]
     pub headers: HashMap<String, String>,
+    /// Expected response body (exact JSON match, optional).
+    #[serde(default)]
+    pub body: Option<serde_json::Value>,
 }
 
 /// Load all fixture files from `{workspace_root}/contracts/http/`, optionally

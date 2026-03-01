@@ -77,8 +77,8 @@ async fn should_return_not_found_when_deleting_missing_credential() {
 
     let result = uc.execute(&[1, 2, 3], user.id).await;
     assert!(
-        matches!(result, Err(AuthServiceError::NotFound)),
-        "expected NotFound, got {result:?}"
+        matches!(result, Err(AuthServiceError::CredentialNotFound)),
+        "expected CredentialNotFound, got {result:?}"
     );
 }
 
@@ -96,7 +96,7 @@ async fn should_return_not_found_when_deleting_credential_of_other_user() {
     // Try to delete another user's credential.
     let result = uc.execute(&cred_id, user.id).await;
     assert!(
-        matches!(result, Err(AuthServiceError::NotFound)),
-        "expected NotFound when deleting other user's credential, got {result:?}"
+        matches!(result, Err(AuthServiceError::CredentialNotFound)),
+        "expected CredentialNotFound when deleting other user's credential, got {result:?}"
     );
 }

@@ -9,7 +9,7 @@ These files are the source of truth for byte-for-byte API compatibility with the
 
 ```
 contracts/
-  http/             # HTTP request/response golden assertions (status, headers)
+  http/             # HTTP request/response golden assertions (status, headers, body)
     auth/           # auth service: /auth/* endpoints
     library/        # library service: /books/* endpoints
     users/          # users service: /users/* endpoints
@@ -39,7 +39,13 @@ Each file describes one HTTP assertion:
   },
   "expect": {
     "status": 401,
-    "headers": {}
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "kind": "INVALID_TOKEN",
+      "message": "invalid token"
+    }
   }
 }
 ```
@@ -54,6 +60,18 @@ Fields:
 - `request.body` — JSON request body (optional)
 - `expect.status` — expected HTTP status code
 - `expect.headers` — expected response headers (subset match; optional)
+- `expect.body` — expected JSON response body (exact match; optional)
+
+**Fixture design rule:** assert everything that is part of the API contract; omit what is
+irrelevant. Concretely:
+
+- JSON error responses → assert `content-type: application/json` + the full `body`
+  (`kind` + `message`); see `.claude/docs/error-kinds.md` for the list of kinds
+- Success responses with a JSON body → assert `content-type: application/json` + the
+  full `body`
+- Cookie-setting responses → assert the `Set-Cookie` header attributes
+- Responses with an empty body (e.g. 204, or axum `StatusCode` rejections) → status
+  only; do not add a `body` field
 
 ## Cookie Contract Format (`contracts/cookies/*.txt`)
 

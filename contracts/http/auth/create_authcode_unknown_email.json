@@ -13,6 +13,13 @@
     }
   },
   "expect": {
-    "status": 404
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "kind": "USER_NOT_FOUND",
+      "message": "user not found"
+    }
   }
 }

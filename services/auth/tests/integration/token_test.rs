@@ -29,8 +29,8 @@ async fn should_reject_token_signed_with_wrong_secret() {
 
     let result = validate_token(&token, "wrong-secret");
     assert!(
-        matches!(result, Err(AuthServiceError::Unauthorized)),
-        "expected Unauthorized, got {result:?}"
+        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
+        "expected InvalidRefreshToken, got {result:?}"
     );
 }
 
@@ -38,8 +38,8 @@ async fn should_reject_token_signed_with_wrong_secret() {
 async fn should_reject_invalid_token_string() {
     let result = validate_token("not-a-jwt", TEST_JWT_SECRET);
     assert!(
-        matches!(result, Err(AuthServiceError::Unauthorized)),
-        "expected Unauthorized, got {result:?}"
+        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
+        "expected InvalidRefreshToken, got {result:?}"
     );
 }
 
@@ -138,8 +138,8 @@ async fn should_return_not_found_when_user_unknown_for_create_token() {
         .await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::NotFound)),
-        "expected NotFound, got {result:?}"
+        matches!(result, Err(AuthServiceError::UserNotFound)),
+        "expected UserNotFound, got {result:?}"
     );
 }
 
@@ -161,8 +161,8 @@ async fn should_return_not_found_when_auth_code_invalid_for_create_token() {
         .await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::NotFound)),
-        "expected NotFound, got {result:?}"
+        matches!(result, Err(AuthServiceError::InvalidAuthcode)),
+        "expected InvalidAuthcode, got {result:?}"
     );
 }
 
@@ -203,8 +203,8 @@ async fn should_return_unauthorized_when_refresh_jwt_invalid() {
     let result = uc.execute("not-a-valid-jwt").await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::Unauthorized)),
-        "expected Unauthorized, got {result:?}"
+        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
+        "expected InvalidRefreshToken, got {result:?}"
     );
 }
 
@@ -221,8 +221,8 @@ async fn should_return_unauthorized_when_refresh_jwt_signed_with_wrong_secret() 
     let result = uc.execute(&refresh).await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::Unauthorized)),
-        "expected Unauthorized, got {result:?}"
+        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
+        "expected InvalidRefreshToken, got {result:?}"
     );
 }
 
@@ -239,7 +239,7 @@ async fn should_return_unauthorized_when_user_deleted_during_refresh() {
     let result = uc.execute(&refresh).await;
 
     assert!(
-        matches!(result, Err(AuthServiceError::Unauthorized)),
-        "expected Unauthorized, got {result:?}"
+        matches!(result, Err(AuthServiceError::InvalidRefreshToken)),
+        "expected InvalidRefreshToken, got {result:?}"
     );
 }

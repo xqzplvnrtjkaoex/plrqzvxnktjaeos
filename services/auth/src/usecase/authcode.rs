@@ -35,12 +35,12 @@ impl<U: UserRepository, A: AuthCodeRepository> CreateAuthcodeUseCase<U, A> {
             .users
             .find_by_email(&input.email)
             .await?
-            .ok_or(AuthServiceError::NotFound)?;
+            .ok_or(AuthServiceError::UserNotFound)?;
 
         // 2. Check active code limit → 429 if at or over limit
         let active = self.auth_codes.count_active(user.id).await?;
         if active >= MAX_ACTIVE_AUTHCODES {
-            return Err(AuthServiceError::TooManyRequests);
+            return Err(AuthServiceError::TooManyAuthcodes);
         }
 
         // 3. Generate code + authcode record

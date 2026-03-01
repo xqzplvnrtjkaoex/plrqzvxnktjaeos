@@ -49,6 +49,9 @@ impl Reporter {
                 for mismatch in &result.header_mismatches {
                     println!("        header: {mismatch}");
                 }
+                if let Some(mismatch) = &result.body_mismatch {
+                    println!("        {mismatch}");
+                }
             }
         }
     }

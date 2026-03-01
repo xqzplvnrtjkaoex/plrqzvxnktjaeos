@@ -7,6 +7,13 @@
     "path": "/auth/token"
   },
   "expect": {
-    "status": 401
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "kind": "INVALID_TOKEN",
+      "message": "invalid token"
+    }
   }
 }
