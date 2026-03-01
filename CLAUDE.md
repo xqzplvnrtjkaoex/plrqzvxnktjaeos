@@ -215,11 +215,15 @@ Do not write tests without reading it first.
 
 ### 4.3 Documentation gate (DoD)
 
+**Required before checking docs:** read `.claude/docs/doc-scope.md` — it defines which
+doc categories to check and the scoping rule. Do not skip the doc check without reading it first.
+
 A PR is not "done" until:
 
 - non-obvious behavior/ops changes are documented
 - runbooks/READMEs updated when relevant
 - rollback steps are recorded when the change affects prod safety
+- relevant docs updated (categories and scoping rule: see `.claude/docs/doc-scope.md`)
 
 ---
 
@@ -332,7 +336,10 @@ When implementing non-trivial features, write a plan document first in `.claude/
 Every plan **must** include a section that explicitly identifies:
 
 1. **Tests to add or modify** — new tests for the feature, and existing tests that may need updating (e.g. assertions that reference changed output, struct fields, or error messages).
-2. **Docs to add or modify** — user-visible changes (new endpoints, new config options, changed error messages, etc.) require an update to the relevant documentation.
+2. **Docs to add or modify** — identify which docs defined in `.claude/docs/doc-scope.md`
+   are relevant to this change, then check only those. User-visible changes (new endpoints,
+   config options, error messages) require updates; stale rustdoc and utoipa annotations on
+   changed handlers must also be updated.
 
 **In plan mode, always confirm both before calling ExitPlanMode:**
 
@@ -341,7 +348,9 @@ Every plan **must** include a section that explicitly identifies:
 
 Do not treat these as optional — always verify both before finalising a plan.
 
-For simple tasks that don't go through planning, ask the user whether tests or documentation need to be updated after the work is done.
+For simple tasks that don't go through planning: after completing the work, identify which
+docs (per `.claude/docs/doc-scope.md`) are relevant to the change, check those for staleness,
+then report what (if anything) needs updating.
 
 `.claude/plans/*.md` files take precedence over `MIGRATION_PLAN.md`. If a plan file exists
 for the current task, follow it. `MIGRATION_PLAN.md` is the long-horizon roadmap;

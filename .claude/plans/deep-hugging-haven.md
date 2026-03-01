@@ -1,431 +1,103 @@
-# Plan: Unified Contract Harness with Remote Docker Orchestration
+# Plan: Define explicit documentation review scope
 
 ## Context
 
-`tools/contract-harness` has two binaries: the URL-based `contract-harness` (live deployments)
-and `auth-harness` (in-process, requires local infra pre-running). The new goal: a single binary
-that spins up its own PostgreSQL + Redis containers via a Docker daemon (local or remote), runs
-selected service tests against an in-process service instance, then always tears everything down.
-No pre-running infrastructure required.
+CLAUDE.md §4.3 and §15 require checking "docs to add or modify" after every change,
+but never define what "documentation" means. This causes incomplete reviews — only
+obvious files (CLAUDE.md, README.md) get checked while rustdoc, `.claude/docs/`, and
+service READMEs are missed.
 
-Single command:
-```bash
-# Local Docker socket:
-cargo run -p contract-harness --features auth
+The user's intent: identify which docs are **relevant to the change** (added/modified/removed
+content), then check only those — not every doc every time. The scope covers `*.md` files
+across the project, `#[utoipa::path]` handler annotations (external API reference), and
+rustdoc in modified `.rs` files.
 
-# Remote Docker:
-DOCKER_HOST=tcp://192.168.1.100:2376 cargo run -p contract-harness --features auth
-```
-
----
-
-## Key Design Decisions
-
-### Docker crate
-`bollard` — standard async Rust Docker API client; supports Unix socket + TCP; reads
-`DOCKER_HOST` automatically via `Docker::connect_with_defaults()`.
-
-### Exclusive lock
-Use an OS file lock (`flock`) at `$TMPDIR/madome-contract-harness.lock`:
-- Try non-blocking exclusive write lock; if held → exit: `"another instance is running"`
-- OS automatically releases on process exit, even on crash/panic (no stale lock)
-- Independent of Docker — lock acquired before any Docker API call
-- Crate: `fd-lock = "4"` (thin safe wrapper around `flock`/`LockFileEx`)
-
-### Container lifecycle
-1. Acquire file lock (fail fast if held)
-2. Startup: cleanup any containers labeled `madome.role=contract-test` (crash recovery)
-3. Create `postgres:18` + `redis:8` with label `madome.role=contract-test`
-4. Wait for ports to accept TCP connections (probe loop, 30 s timeout)
-5. Run each enabled service feature
-6. **Always** stop + remove test containers (success or failure)
-7. File lock auto-released when process exits
-
-### Feature flags (compile-time)
-```bash
-cargo run -p contract-harness --features auth        # only auth
-# future: --features auth,users,library
-```
-Each feature conditionally compiles service-specific code (migrations + in-process server).
-Building with no features still compiles the URL-based `contract-harness` binary unchanged.
-
-### DB / Redis URL construction
-Postgres + Redis containers use `HostPort = ""` (random). After starting, inspect the
-container to get the mapped port. Extract the Docker host from `DOCKER_HOST`:
-- `unix://...` → `127.0.0.1`
-- `tcp://HOST:PORT` → `HOST`
-
-Result:
-```
-DATABASE_URL = postgres://postgres:postgres@{docker_host}:{mapped_pg_port}/madome_test
-REDIS_URL    = redis://{docker_host}:{mapped_redis_port}
-```
-
-The service (e.g. auth) runs **in-process** on the test machine, connecting to remote containers.
-
-### Cleanup pattern (no Drop)
-```rust
-let result = run_services(&infra, &config, &workspace_root).await;
-orch.cleanup().await.ok();  // always, ignores secondary cleanup errors
-result?;
-```
+The doc inventory is placed in a dedicated `.claude/docs/doc-scope.md` file (following the
+same pattern as `testing-philosophy.md`, `pr-guide.md`, etc.) so that new doc categories
+can be added without touching CLAUDE.md.
 
 ---
 
 ## Changes
 
-### 1. `tools/contract-harness/src/lib.rs` — MODIFY
+### 1. New file: `.claude/docs/doc-scope.md`
 
-Add new modules (existing `fixture`, `reporter`, `runner` unchanged):
-```rust
-pub mod config;
-pub mod docker;
-pub mod services;
+Create this file with the full scope inventory and scoping rule:
+
+```markdown
+# Documentation Scope
+
+When checking "are there docs to update?", identify which of these categories are
+**relevant to the change**, then check only those. Do not review every doc on every PR.
+
+| Category | Where to look |
+|----------|---------------|
+| Root `*.md` | `CLAUDE.md`, `README.md`, `MIGRATION_PLAN.md` |
+| Process docs | `.claude/docs/*.md` |
+| Plan docs | `.claude/plans/*.md` (keep in sync with implementation) |
+| Service/tool READMEs | `services/*/README.md`, `tools/*/README.md`, `contracts/README.md` |
+| utoipa annotations | `#[utoipa::path]` attributes above handler functions in modified `.rs` files — merged by `tools/openapi/` into `dist/openapi/public.yaml` (public API reference for external developers) |
+| Rustdoc in code | `///` and `//!` comments in modified `.rs` files; doc tests |
+
+**Scoping rule**: A doc is relevant if the change affects what that doc describes — new
+or changed behavior, endpoints, config, error messages, ops procedures, or type/function
+semantics. Stale content in any relevant doc = PR blocked.
+
+## Keeping this file current
+
+When creating a new document (file, directory, or embedded annotation type) that does not
+match any row in the table above, add a new row to the table as part of the same PR that
+introduces the new document.
 ```
 
-### 2. `tools/contract-harness/src/docker.rs` — NEW
+### 2. §4.3 Documentation gate — add doc-scope reference + DoD bullet
 
-```rust
-pub struct DockerOrchestrator {
-    client: bollard::Docker,
-    /// IP/hostname to reach containers from the host machine
-    pub host: String,
-    test_container_ids: Vec<String>,
-}
+Insert a Required-read line before the DoD list, and add a docs bullet to the list:
 
-impl DockerOrchestrator {
-    /// Connect to the Docker daemon at the given URL.
-    /// Parses scheme: "unix://" → local socket; "tcp://" → HTTP.
-    /// Sets `self.host` to the IP/hostname used to reach containers.
-    pub async fn connect(docker_host: &str) -> anyhow::Result<Self>
+```diff
++**Required before checking docs:** read `.claude/docs/doc-scope.md` — it defines which
++doc categories to check and the scoping rule. Do not skip the doc check without reading it first.
++
+ A PR is not "done" until:
 
-    /// Remove all NON-RUNNING containers labeled `madome.role=contract-test`.
-    /// (Only removes exited/dead containers — running containers from other sessions untouched.)
-    pub async fn cleanup_stale(&self) -> anyhow::Result<()>
-
-    /// Start postgres:18 on a random port. Returns DATABASE_URL.
-    pub async fn start_postgres(&mut self) -> anyhow::Result<String>
-
-    /// Start redis:8 on a random port. Returns REDIS_URL.
-    pub async fn start_redis(&mut self) -> anyhow::Result<String>
-
-    /// Stop + remove all test containers. Always call this.
-    pub async fn cleanup(&mut self) -> anyhow::Result<()>
-}
-
-/// TCP connect probe — waits until the port accepts connections (30 s max).
-async fn wait_port_open(host: &str, port: u16, timeout_secs: u64) -> anyhow::Result<()>
-
-/// Extract the addressable hostname from a Docker URL.
-/// unix:// → "127.0.0.1";  tcp://HOST:PORT → "HOST"
-fn docker_host_from_url(url: &str) -> String
+ - non-obvious behavior/ops changes are documented
+ - runbooks/READMEs updated when relevant
+ - rollback steps are recorded when the change affects prod safety
++- relevant docs updated (categories and scoping rule: see `.claude/docs/doc-scope.md`)
 ```
 
-### 3. `tools/contract-harness/src/services/mod.rs` — NEW
+### 3. §15 Plans — tighten "Docs to add or modify" checklist
 
-```rust
-pub struct InfraUrls {
-    pub database_url: String,
-    pub redis_url: String,
-}
-
-#[cfg(feature = "auth")]
-pub mod auth;
+```diff
+-2. **Docs to add or modify** — user-visible changes (new endpoints, new config options, changed error messages, etc.) require an update to the relevant documentation.
++2. **Docs to add or modify** — identify which docs defined in `.claude/docs/doc-scope.md`
++   are relevant to this change, then check only those. User-visible changes (new endpoints,
++   config options, error messages) require updates; stale rustdoc and utoipa annotations on
++   changed handlers must also be updated.
 ```
 
-### 4. `tools/contract-harness/src/services/auth.rs` (feature = "auth") — NEW
+And tighten the simple-task rule:
 
-```rust
-/// Run auth migrations, start auth service in-process, run auth fixtures.
-/// Returns `true` if all fixtures passed.
-pub async fn run(
-    infra: &InfraUrls,
-    config: &ContractHarnessConfig,
-    workspace_root: &Path,
-) -> anyhow::Result<bool>
-```
-
-Internally:
-- `Database::connect(&infra.database_url)` → `Migrator::up(&db, None)`
-- `deadpool_redis::Config::from_url(&infra.redis_url).create_pool(...)`
-- Build `AppState` + `TcpListener::bind("127.0.0.1:0")`
-- `tokio::spawn(async move { axum::serve(...).await.unwrap(); })`
-- `fixture::load_all(workspace_root, Some("auth"))` → run → report
-
-### 5. `tools/contract-harness/src/config.rs` — NEW
-
-```rust
-/// All configuration for the Docker-based contract harness.
-/// Loaded from env vars after dotenv::dotenv().ok(); no CLI parsing.
-#[derive(Debug)]
-pub struct ContractHarnessConfig {
-    /// Docker daemon URL — DOCKER_HOST env var
-    /// default: "unix:///var/run/docker.sock"
-    pub docker_host: String,
-
-    /// JWT_SECRET — default: "test-contract-secret"
-    pub jwt_secret: String,
-
-    /// WEBAUTHN_RP_ID — default: "localhost"
-    pub webauthn_rp_id: String,
-
-    /// WEBAUTHN_ORIGIN — default: "http://localhost"
-    pub webauthn_origin: String,
-
-    /// COOKIE_DOMAIN — default: "localhost"
-    pub cookie_domain: String,
-}
-
-impl ContractHarnessConfig {
-    pub fn from_env() -> Self {
-        Self {
-            docker_host: std::env::var("DOCKER_HOST")
-                .unwrap_or_else(|_| "unix:///var/run/docker.sock".to_owned()),
-            jwt_secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "test-contract-secret".to_owned()),
-            webauthn_rp_id: std::env::var("WEBAUTHN_RP_ID")
-                .unwrap_or_else(|_| "localhost".to_owned()),
-            webauthn_origin: std::env::var("WEBAUTHN_ORIGIN")
-                .unwrap_or_else(|_| "http://localhost".to_owned()),
-            cookie_domain: std::env::var("COOKIE_DOMAIN")
-                .unwrap_or_else(|_| "localhost".to_owned()),
-        }
-    }
-}
-```
-
-Called once at startup after `dotenv::dotenv().ok()`. Passed by reference throughout.
-
-### 6. `tools/contract-harness/src/main.rs` — REWRITE
-
-```
-Flow (Docker-feature mode, i.e. at least one service feature enabled):
-  1. dotenv::dotenv().ok()
-  2. let config = ContractHarnessConfig::from_env()
-  3. acquire_file_lock()               ← flock on $TMPDIR/madome-contract-harness.lock
-                                         fail fast if held; auto-released on exit/crash
-  4. let mut orch = DockerOrchestrator::connect(&config.docker_host).await?
-  5. orch.cleanup_stale().await        ← crash recovery (label-based)
-  6. database_url = orch.start_postgres().await
-  7. redis_url    = orch.start_redis().await
-  8. let result = run_services(&infra, &config, &workspace_root).await
-  9. orch.cleanup().await.ok()         ← always
-  10. exit 0 / 1
-
-run_services(infra, config, workspace_root):
-  let mut all_passed = true;
-  #[cfg(feature = "auth")]  { all_passed &= services::auth::run(infra, config, workspace_root).await?; }
-  Ok(all_passed)
-```
-
-Note: `run_services` does NOT take `&mut orch` — orch is only used in main for cleanup.
-
-Without service features compiled in, binary works as before (URL-based mode with existing
-`--base-url` / `--service` / `--env` args). Gate Docker flow on
-`cfg(any(feature = "auth", ...))`.
-
-### 7. `tools/contract-harness/Cargo.toml` — MODIFY
-
-```toml
-[features]
-auth = [
-    "dep:madome-auth",
-    "dep:madome-auth-migration",
-    "dep:axum",
-    "dep:sea-orm",
-    "dep:sea-orm-migration",
-    "dep:deadpool-redis",
-    "dep:webauthn-rs",
-    "dep:url",
-]
-
-[dependencies]
-# always present (needed for Docker orchestration even without service features)
-bollard            = { workspace = true }
-fd-lock            = "4"
-tokio              = { workspace = true }
-reqwest            = { workspace = true }
-serde              = { workspace = true }
-serde_json         = { workspace = true }
-clap               = { workspace = true }
-anyhow             = { workspace = true }
-tracing-subscriber = { workspace = true }
-dotenv             = "0.15"
-
-# auth feature only
-madome-auth           = { path = "../../services/auth",           optional = true }
-madome-auth-migration = { path = "../../services/auth/migration", optional = true }
-axum                  = { workspace = true, optional = true }
-sea-orm               = { workspace = true, optional = true }
-sea-orm-migration     = { workspace = true, optional = true }
-deadpool-redis        = { workspace = true, optional = true }
-webauthn-rs           = { workspace = true, optional = true }
-url                   = { version = "2",    optional = true }
-```
-
-Remove: `[[bin]] auth-harness` and `src/bin/auth_harness.rs`.
-
-### 8. Workspace `Cargo.toml` — MODIFY
-
-```toml
-bollard = { version = "0.20" }
+```diff
+-For simple tasks that don't go through planning, ask the user whether tests or documentation need to be updated after the work is done.
++For simple tasks that don't go through planning: after completing the work, identify which
++docs (per `.claude/docs/doc-scope.md`) are relevant to the change, check those for staleness,
++then report what (if anything) needs updating.
 ```
 
 ---
 
 ## Files touched
 
-| Action | Path |
-|--------|------|
-| Remove | `tools/contract-harness/src/bin/auth_harness.rs` |
-| Modify | `Cargo.toml` (workspace — add bollard) |
-| Modify | `tools/contract-harness/Cargo.toml` |
-| Modify | `tools/contract-harness/src/lib.rs` |
-| Modify | `tools/contract-harness/src/main.rs` |
-| Create | `tools/contract-harness/src/config.rs` |
-| Create | `tools/contract-harness/src/docker.rs` |
-| Create | `tools/contract-harness/src/services/mod.rs` |
-| Create | `tools/contract-harness/src/services/auth.rs` |
-| Create | `tools/contract-harness/README.md` |
-| Modify | `.claude/docs/testing-philosophy.md` |
-
----
+| File | Action |
+|------|--------|
+| `.claude/docs/doc-scope.md` | Create (new) |
+| `CLAUDE.md` | §4.3 (add Required-read + DoD bullet), §15 (checklist item 2 + simple-task rule) |
 
 ## Verification
 
-```bash
-# 1. Build without features (URL-mode binary must still compile)
-cargo build -p contract-harness
-
-# 2. Build with auth feature
-cargo build -p contract-harness --features auth
-
-# 3. Lint
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-
-# 4. Unit tests
-cargo test --workspace --all-features
-
-# 5. End-to-end (needs Docker running)
-cargo run -p contract-harness --features auth
-# Expected: postgres+redis containers appear, fixtures run, containers removed, exit 0
-
-# 6. Concurrent-run lock test
-cargo run -p contract-harness --features auth &
-sleep 2
-cargo run -p contract-harness --features auth
-# Expected: second run exits immediately "another instance is running"
-
-# 7. Remote Docker (if available)
-DOCKER_HOST=tcp://remote:2376 cargo run -p contract-harness --features auth
-```
-
----
-
-## Docs to update
-
-### `.claude/docs/testing-philosophy.md` — extend self-contained harness section
-
-Append a new subsection after the existing "Migration lib extraction" block:
-
-```markdown
-**Docker-orchestrated harnesses** (for services requiring a real database/cache)
-
-When the service under test needs PostgreSQL + Redis, spin them up as Docker containers
-instead of requiring manual infra setup. This keeps the single-command guarantee.
-
-Pattern (using `bollard` + `fd-lock`):
-
-```rust
-// 1. Exclusive lock — only one harness instance at a time
-//    OS auto-releases even on crash/panic (no stale lock)
-let lock_path = std::env::temp_dir().join("madome-contract-harness.lock");
-let lock_file = std::fs::File::create(&lock_path)?;
-let mut lock  = fd_lock::RwLock::new(lock_file);
-let _guard    = lock.try_write().map_err(|_| anyhow!("another instance is running"))?;
-
-// 2. Connect to Docker daemon (reads DOCKER_HOST env var)
-let mut orch = DockerOrchestrator::connect(&config.docker_host).await?;
-
-// 3. Crash recovery — remove non-running test containers from previous run
-orch.cleanup_stale().await?;
-
-// 4. Start infra containers on random ports
-let database_url = orch.start_postgres().await?;
-let redis_url    = orch.start_redis().await?;
-
-// 5. Run services in-process against the containers
-let result = run_services(&infra, &config, &workspace_root).await;
-
-// 6. Always tear down (success or failure — never use Drop for this)
-orch.cleanup().await.ok();
-result?;
-```
-
-Rules:
-- Label every test container (`madome.role=contract-test`) for safe targeted cleanup.
-- `cleanup_stale()` removes only **non-running** containers (exited/dead) — never kills
-  containers from a concurrently running instance.
-- Use **Cargo feature flags** to compile service-specific code into the harness binary:
-  `--features auth` enables only the auth service runner; `--features auth,users` enables
-  both. Building without features keeps the URL-mode binary unchanged.
-- Service-specific deps (`madome-auth`, migrations, etc.) must be `optional = true` in
-  `Cargo.toml` and gated behind their feature. Never add them to `[dependencies]` directly.
-- `bollard` and `fd-lock` are always-present deps (needed for Docker orchestration even
-  without service features).
-- Containers use `HostPort = ""` (random); inspect after start to obtain the mapped port.
-  `tcp://HOST:PORT` → use HOST as the container address; `unix://...` → use `127.0.0.1`.
-```
-
-### `tools/contract-harness/README.md` — create
-
-Content outline:
-
-```markdown
-# contract-harness
-
-Two modes:
-
-## URL mode (default — no service features)
-
-Runs contract fixtures against an **already-running** service.
-
-```bash
-cargo run -p contract-harness -- \
-  --base-url http://localhost:3112 \
-  --service auth \
-  --env dev
-```
-
-## Docker mode (service feature flags)
-
-Spins up PostgreSQL + Redis containers automatically, runs the service in-process,
-then tears everything down. Requires Docker.
-
-```bash
-# Local Docker socket (default):
-cargo run -p contract-harness --features auth
-
-# Remote Docker daemon:
-DOCKER_HOST=tcp://192.168.1.100:2376 cargo run -p contract-harness --features auth
-```
-
-## Environment variables (Docker mode)
-
-| Variable         | Default                        | Description                          |
-|------------------|--------------------------------|--------------------------------------|
-| `DOCKER_HOST`    | `unix:///var/run/docker.sock`  | Docker daemon URL                    |
-| `JWT_SECRET`     | `test-contract-secret`         | HMAC secret for token signing        |
-| `WEBAUTHN_RP_ID` | `localhost`                    | WebAuthn relying-party ID            |
-| `WEBAUTHN_ORIGIN`| `http://localhost`             | WebAuthn relying-party origin        |
-| `COOKIE_DOMAIN`  | `localhost`                    | Cookie domain attribute              |
-
-Place overrides in a `.env` file at the workspace root — loaded automatically.
-
-## Extending for new services
-
-1. Add a `[feature]` entry in `Cargo.toml` listing the service's optional deps.
-2. Create `src/services/<service>.rs` with a `run(infra, config, root)` function.
-3. Add `#[cfg(feature = "<service>")] pub mod <service>;` in `src/services/mod.rs`.
-4. Call `services::<service>::run(...)` inside `run_services()` in `main.rs`.
-```
+Read the updated §4.3 and §15 and confirm:
+- `.claude/docs/doc-scope.md` is referenced by name
+- §4.3 has a "Required before checking docs" line + a docs bullet in the DoD list
+- §15 item 2 no longer enumerates paths inline — refers to doc-scope.md
+- The simple-task rule no longer asks the user — it directs Claude to identify and check first
