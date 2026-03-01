@@ -106,8 +106,7 @@ pub async fn get_tastes(
     let sort_by = query
         .sort_by
         .as_deref()
-        .map(TasteSortBy::from_kebab)
-        .unwrap_or(Some(TasteSortBy::default()))
+        .and_then(TasteSortBy::from_kebab)
         .unwrap_or_default();
 
     let page = madome_domain::pagination::PageRequest {

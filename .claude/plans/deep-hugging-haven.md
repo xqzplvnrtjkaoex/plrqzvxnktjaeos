@@ -1,71 +1,48 @@
-# Plan: Document domain trait naming and repository grouping convention
+# Plan: Fix less-idiomatic code patterns
 
 ## Context
 
-During Unit D (users service), the taste repository was initially split into two separate
-traits (`TasteBookRepository` + `TasteBookTagRepository`), each backed by a single table.
-This was wrong — legacy fetches both taste types in a single UNION ALL query, so splitting
-the repository doubled query count for the combined list path. The fix was merging into a
-single `TasteRepository` that owns both `taste_books` and `taste_book_tags` tables.
+Code review found two less-idiomatic patterns in the existing codebase:
 
-This incident exposed two undocumented conventions:
-
-1. **Repository grouping** — when should a repository trait own one table vs. multiple?
-2. **Domain trait naming** — the codebase uses three suffixes (`XxxRepository`, `XxxPort`,
-   `XxxCache`) but no doc explains the distinction.
-
-Both are implicit in the code today. Document them in `.claude/docs/code-conventions.md`.
+1. Double `unwrap_or` on `Option<Option<T>>` in taste handler — should use `.and_then()`
+2. Auth service error tests missing `should_` prefix — violates `testing-philosophy.md`
 
 ---
 
 ## Changes
 
-### `.claude/docs/code-conventions.md` — add "Domain trait naming" section
+### 1. `services/users/src/handlers/taste.rs:106-111` — simplify double unwrap
 
-Insert after the "Error Kinds" section (after line 56, before the `---` + "Env var reading"
-section). Content:
+```rust
+// Before (lines 106-111):
+let sort_by = query
+    .sort_by
+    .as_deref()
+    .map(TasteSortBy::from_kebab)
+    .unwrap_or(Some(TasteSortBy::default()))
+    .unwrap_or_default();
 
-```markdown
-## Domain trait naming and repository grouping
-
-### Trait suffix rules
-
-All traits in `domain/repository.rs` follow one of three naming suffixes:
-
-| Suffix | Backend | When to use |
-|--------|---------|-------------|
-| `XxxRepository` | Database (sea-orm) | Standard CRUD for a single domain aggregate |
-| `XxxPort` | Cross-aggregate DB transaction or external service (gRPC) | Operation that spans multiple aggregates or calls another service |
-| `XxxCache` | Redis / in-memory | Ephemeral state with TTL (e.g., ceremony states) |
-
-### Repository grouping — one trait per aggregate, not per table
-
-The number of tables a repository owns depends on how the domain queries them:
-
-| Pattern | When to use | Example |
-|---------|-------------|---------|
-| 1 trait : 1 table | Independent CRUD, no cross-table queries | `UserRepository` → `users` |
-| 1 trait : N tables (union) | Combined list from sibling tables via UNION ALL | `TasteRepository` → `taste_books` + `taste_book_tags` |
-| 1 trait : N tables (parent-child) | Parent + children always read/written together | `NotificationRepository` → `notification_books` + `notification_book_tags` |
-| 1 trait : N tables (transaction) | Multi-table writes must be atomic | `AuthCodeRepository` → `auth_codes` + `outbox_events` |
-
-**Decision rule:** If two tables appear in the same SQL query (JOIN, UNION ALL, or
-transaction), they belong in one trait. If they are always queried independently, keep
-them in separate traits.
-
-### Port examples
-
-| Port | Why it's a Port, not a Repository |
-|------|-----------------------------------|
-| `RenewBookPort` | Atomic operation spanning 3 aggregates (taste + history + notification tables) |
-| `LibraryQueryPort` | Outbound gRPC call to another service — no local DB |
-
-### Cache examples
-
-| Cache | Backend | Key pattern |
-|-------|---------|-------------|
-| `PasskeyCache` | Redis | `passkey_reg:{user_id}:{reg_id}`, `passkey_auth:{email}:{auth_id}` — two ceremony kinds grouped in one trait |
+// After:
+let sort_by = query
+    .sort_by
+    .as_deref()
+    .and_then(TasteSortBy::from_kebab)
+    .unwrap_or_default();
 ```
+
+### 2. `services/auth/src/error.rs` — rename 9 test functions
+
+| Before | After |
+|--------|-------|
+| `user_not_found_json_body` | `should_return_user_not_found` |
+| `credential_not_found_json_body` | `should_return_credential_not_found` |
+| `invalid_authcode_json_body` | `should_return_invalid_authcode` |
+| `invalid_token_json_body` | `should_return_invalid_token` |
+| `invalid_refresh_token_json_body` | `should_return_invalid_refresh_token` |
+| `invalid_session_json_body` | `should_return_invalid_session` |
+| `invalid_credential_json_body` | `should_return_invalid_credential` |
+| `too_many_authcodes_json_body` | `should_return_too_many_authcodes` |
+| `internal_json_body` | `should_return_internal` |
 
 ---
 
@@ -73,23 +50,15 @@ them in separate traits.
 
 | File | Action |
 |------|--------|
-| `.claude/docs/code-conventions.md` | Add "Domain trait naming and repository grouping" section after "Error Kinds" (line 56) |
+| `services/users/src/handlers/taste.rs` | `.and_then()` instead of double `unwrap_or` |
+| `services/auth/src/error.rs` | Rename 9 test functions to `should_` prefix |
 
 ---
 
 ## Verification
 
-1. Read `.claude/docs/code-conventions.md` and confirm the new section is correctly placed.
-2. Cross-check every example in the table against the actual code:
-   - `services/users/src/domain/repository.rs` — UserRepository, TasteRepository,
-     HistoryRepository, NotificationRepository, FcmTokenRepository, RenewBookPort,
-     LibraryQueryPort
-   - `services/auth/src/domain/repository.rs` — AuthCodeRepository, PasskeyRepository,
-     PasskeyCache
-
----
-
-## Tests / Docs
-
-- No tests (documentation change only)
-- `.claude/docs/code-conventions.md` is the target document
+```bash
+cargo test -p madome-users --all-features
+cargo test -p madome-auth --all-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+```

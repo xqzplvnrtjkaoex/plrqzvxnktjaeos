@@ -73,7 +73,7 @@ mod tests {
     use axum::response::IntoResponse;
 
     #[tokio::test]
-    async fn user_not_found_json_body() {
+    async fn should_return_user_not_found() {
         let resp = AuthServiceError::UserNotFound.into_response();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn credential_not_found_json_body() {
+    async fn should_return_credential_not_found() {
         let resp = AuthServiceError::CredentialNotFound.into_response();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -93,7 +93,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_authcode_json_body() {
+    async fn should_return_invalid_authcode() {
         let resp = AuthServiceError::InvalidAuthcode.into_response();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -103,7 +103,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_token_json_body() {
+    async fn should_return_invalid_token() {
         let resp = AuthServiceError::InvalidToken.into_response();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -113,7 +113,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_refresh_token_json_body() {
+    async fn should_return_invalid_refresh_token() {
         let resp = AuthServiceError::InvalidRefreshToken.into_response();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -123,7 +123,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_session_json_body() {
+    async fn should_return_invalid_session() {
         let resp = AuthServiceError::InvalidSession.into_response();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_credential_json_body() {
+    async fn should_return_invalid_credential() {
         let resp = AuthServiceError::InvalidCredential.into_response();
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn too_many_authcodes_json_body() {
+    async fn should_return_too_many_authcodes() {
         let resp = AuthServiceError::TooManyAuthcodes.into_response();
         assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
@@ -153,7 +153,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn internal_json_body() {
+    async fn should_return_internal() {
         let resp = AuthServiceError::Internal(anyhow::anyhow!("db error")).into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
