@@ -68,7 +68,7 @@ Three types of issues:
 | Type | When | Who opens |
 |------|------|-----------|
 | **Task** | Planning phase — one per PR unit | Claude (during planning) |
-| **Escalation** | §13 condition: unexpected finding or decision needed | Claude (mid-implementation) |
+| **Escalation** | §9 condition: unexpected finding or decision needed | Claude (mid-implementation) |
 | **Bug/blocker** | Unexpected failure or external blocker | Claude or user |
 
 **Task issues:** When writing a plan that involves multiple PR units, Claude opens a GitHub
@@ -77,7 +77,7 @@ The **dev→master** PR closes the task issue with `closes #N` in the PR body.
 Feature→dev PRs describe the implementation work and do not include `closes #N`.
 
 **Escalation issues:** When implementation reveals something the plan didn't anticipate
-(see §13 in CLAUDE.md), Claude opens an issue describing what was found, pauses work, and
+(see §9 in CLAUDE.md), Claude opens an issue describing what was found, pauses work, and
 waits for a response before continuing.
 
 ```bash

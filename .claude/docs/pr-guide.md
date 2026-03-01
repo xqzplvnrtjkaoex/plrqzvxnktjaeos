@@ -1,12 +1,12 @@
 # PR Guide Reference
 
-> Reference doc for CLAUDE.md §5–§7, §10–§11. Read before writing a plan or opening a PR.
+> Reference doc for CLAUDE.md §5. Read before writing a plan or opening a PR.
 
 ---
 
 ## The only allowed workflow (§5)
 
-> In the agent team model (§18), only the Leader follows steps 1–5.
+> In the agent team model (§13), only the Leader follows steps 1–5.
 > Teammates receive a ready-made task description and execute steps 6–9 only.
 
 1. **Read**: inspect existing code, contract fixtures, and prior decisions.
@@ -39,7 +39,7 @@ Use this exact structure in the Issue/PR description:
 
 ---
 
-## Work Size and Decomposition Rules (§6)
+## Work Size and Decomposition Rules
 
 ### "Small PR" rule
 
@@ -65,7 +65,7 @@ Split by **gate**:
 
 ---
 
-## Interface Files (Extra Review Required) (§7)
+## Interface Files (Extra Review Required)
 
 The following are "interfaces" and require explicit Leader review (and often CODEOWNERS):
 
@@ -85,7 +85,7 @@ Rule:
 
 ---
 
-## Branch Protection Recommendations (§10)
+## Branch Protection Recommendations
 
 The default branch should have (recommended):
 
@@ -99,7 +99,7 @@ If these settings are missing, file a permissions/settings request (see `.claude
 
 ---
 
-## PR Template (Required Checklist) (§11)
+## PR Template (Required Checklist)
 
 Every PR description must include the following sections:
 

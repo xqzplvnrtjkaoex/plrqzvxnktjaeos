@@ -118,6 +118,14 @@ Commit both the `.ts` source and the generated YAML together.
 
 **Verification rule:** Whenever claiming that implementation is complete or tests pass, always run both lint and tests and confirm both are clean. Do not skip lint during verification.
 
+**Required tooling** (beyond `rustup`):
+
+| Tool | Why |
+|------|-----|
+| Docker | Contract harness spins up PostgreSQL + Redis containers |
+| `gh` CLI | PR creation, repo settings, issue management |
+| Node.js / `npx` | gaji CI workflow compilation |
+
 ---
 
 ## 3) Code Conventions
@@ -125,7 +133,11 @@ Commit both the `.ts` source and the generated YAML together.
 - **Rust edition**: 2024 (`rust-version = "1.85"`)
 
 **Required before writing any code:** read `.claude/docs/code-conventions.md`.
-It covers all naming rules, test placement, and async patterns. Do not write code without reading it first.
+It covers all naming rules, test placement, async patterns, and error kind conventions.
+Do not write code without reading it first.
+
+**Required before adding or modifying error types:** read `.claude/docs/error-kinds.md`.
+It defines the JSON error format, kind naming rules, and the kind table per service.
 
 ### Service Architecture (Clean Architecture)
 
@@ -223,40 +235,28 @@ A PR is not "done" until:
 - non-obvious behavior/ops changes are documented
 - runbooks/READMEs updated when relevant
 - rollback steps are recorded when the change affects prod safety
-- relevant docs updated (categories and scoping rule: see `.claude/docs/doc-scope.md`)
 
 ---
 
 ## 5) The Team Workflow (Strict Sequence)
 
 **Required before writing a plan or opening a PR:**
-- `.claude/docs/pr-guide.md` — workflow sequence, plan template, PR checklist, work size rules
+- `.claude/docs/pr-guide.md` — workflow sequence, plan template, PR checklist, work size rules,
+  decomposition rules, interface file list, branch protection recommendations
 - `.claude/docs/github-workflow.md` — branching, `gh` CLI, gaji CI, review, merge strategy
 
 Both are mandatory. Do not create branches, write plans, or open PRs without reading both.
 
 ---
 
-## 6) Work Size and Decomposition Rules
-
-> See `.claude/docs/pr-guide.md`.
-
----
-
-## 7) Interface Files (Extra Review Required)
-
-> See `.claude/docs/pr-guide.md`.
-
----
-
-## 8) Authorization and Permissions (No Workarounds)
+## 6) Authorization and Permissions (No Workarounds)
 
 Do not work around missing permissions. If GitHub permissions block your work,
 read `.claude/docs/permissions.md` for the minimum-privilege rule and request template.
 
 ---
 
-## 9) Repo Boundary Rules (Safety)
+## 7) Repo Boundary Rules (Safety)
 
 - Do not access or modify files outside the repository working directory.
 - Do not introduce tooling that requires privileged execution unless approved in the plan.
@@ -268,19 +268,7 @@ read `.claude/docs/permissions.md` for the minimum-privilege rule and request te
 
 ---
 
-## 10) Branch Protection Recommendations (Project Defaults)
-
-> See `.claude/docs/pr-guide.md`.
-
----
-
-## 11) PR Template (Required Checklist)
-
-> See `.claude/docs/pr-guide.md`.
-
----
-
-## 12) Common Traps (Read Before Touching Sensitive Areas)
+## 8) Common Traps (Read Before Touching Sensitive Areas)
 
 These are the failure modes most likely to silently break Compat.
 
@@ -299,7 +287,7 @@ If you suspect one of these traps, stop and revise the plan.
 
 ---
 
-## 13) Escalation Rules
+## 9) Escalation Rules
 
 Stop and ask (the user directly, or the Leader via `SendMessage` in team mode) if **any** of the
 following occur — even mid-implementation:
@@ -321,13 +309,7 @@ No silent "best guesses" on contract-sensitive or plan-sensitive behavior.
 
 ---
 
-## 14) Writing Docs
-
-> See `.claude/docs/doc-standards.md` for language and style rules.
-
----
-
-## 15) Plans
+## 10) Plans
 
 **Active Compat plan**: `.claude/plans/bubbly-puzzling-dewdrop.md` — this plan takes priority over `MIGRATION_PLAN.md` for all implementation decisions during the Compat phase.
 
@@ -358,31 +340,35 @@ for the current task, follow it. `MIGRATION_PLAN.md` is the long-horizon roadmap
 
 ---
 
-## 16) External Tool Usage Policy
+## 11) External Tool Usage Policy
 
 **Required before adding or upgrading any dependency:**
 read `.claude/docs/external-tools.md`. Do not add crates, APIs, or CLI tools without reading it.
 
 ---
 
-## 17) Documentation Standards
+## 12) Documentation Standards
 
-**Required before writing public API docs or rustdoc comments:**
+**Required before writing any documentation:**
 read `.claude/docs/doc-standards.md`. Do not write docs without reading it first.
+
+Avoid AI-typical writing patterns — before writing docs, see
+<https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing> and avoid those patterns.
 
 ---
 
-## 18) Team Agent Workflow
+## 13) Team Agent Workflow
 
 Form a **team of Claude Code agents** only when multiple independent tasks can run in parallel. Do not form a team by default.
 
-### 18.1 Team structure
+### 13.1 Team structure
 
-- **Team size**: maximum 4 members (excluding the Leader).
+- **Team size**: maximum 3 members (excluding the Leader).
 - **Leader**: the main Claude Code session — owns all planning, approves work, and is responsible for the final outcome.
-- **Team member model**: `claude-sonnet-4-6` (Sonnet 4.6).
+- **Team member model**: `claude-sonnet-4-6` (Sonnet 4.6) for implementation;
+  `claude-opus-4-6` (Opus 4.6) for non-implementation work (review, audit). See §13.10.
 
-### 18.2 Division of responsibility
+### 13.2 Division of responsibility
 
 | Role     | Plans               | Implements            | Verifies                              |
 | -------- | ------------------- | --------------------- | ------------------------------------- |
@@ -393,7 +379,7 @@ Form a **team of Claude Code agents** only when multiple independent tasks can r
 A teammate must never write or change a plan — if something in the plan is unclear or impossible,
 the teammate reports back to the Leader, who revises the plan.
 
-### 18.3 Workflow sequence
+### 13.3 Workflow sequence
 
 ```
 Leader                          Teammate(s)
@@ -412,7 +398,7 @@ Leader                          Teammate(s)
 
 Steps 1–5 may run in parallel across multiple teammates for independent tasks.
 
-### 18.4 Leader responsibilities
+### 13.4 Leader responsibilities
 
 1. Explore the codebase and design the plan before spawning teammates.
 2. Decompose the plan into concrete, implementation-ready tasks.
@@ -423,7 +409,7 @@ Steps 1–5 may run in parallel across multiple teammates for independent tasks.
 7. Shut down the team gracefully with `SendMessage` (`shutdown_request`) when all work is done.
 8. **Report the final outcome to the user** once all tasks are complete — summarize what was done, what files changed, test results, and any remaining caveats. The user is the final authority; the Leader's last act is always a clear, concise report to the user.
 
-### 18.5 Teammate responsibilities
+### 13.5 Teammate responsibilities
 
 1. Read the assigned task description fully before writing any code.
 2. Implement exactly what the task specifies — no scope expansion.
@@ -432,7 +418,7 @@ Steps 1–5 may run in parallel across multiple teammates for independent tasks.
 5. If the task is unclear or a requirement conflicts with existing code, **stop and ask the Leader** — do not guess or self-plan.
 6. After completing a task, check `TaskList` for additional unassigned, unblocked work and self-claim it with `TaskUpdate` (set `owner` to your name) — do not wait for the Leader to assign if work is available.
 
-### 18.6 When to form a team
+### 13.6 When to form a team
 
 **Form a team when:**
 - The task maps to 2+ independent subtasks that can proceed in parallel without file conflicts.
@@ -444,8 +430,6 @@ Steps 1–5 may run in parallel across multiple teammates for independent tasks.
 - The task touches one file or one concern — solo work is faster.
 - A subagent (`Agent` tool) can handle the delegation without peer coordination.
 
-Team size limit: maximum 4 teammates.
-
 **Subagent vs. team:**
 
 | | `Agent` tool (subagent) | `TeamCreate` (team) |
@@ -454,11 +438,11 @@ Team size limit: maximum 4 teammates.
 | Shared task list | No | Yes (`TaskCreate` / `TaskList`) |
 | Best for | Focused single task, research | 2+ parallel independent tasks |
 
-### 18.7 No nested teams
+### 13.7 No nested teams
 
 Teammates must not spawn their own teams. If a sub-task requires further delegation, the teammate reports it as a blocker to the Leader, who handles the decomposition.
 
-### 18.8 Task description format (Leader → Teammate)
+### 13.8 Task description format (Leader → Teammate)
 
 Every task assigned to a teammate must include:
 
@@ -472,7 +456,7 @@ Constraints:  <layer/dependency rules to respect, contract invariants, etc.>
 
 The Leader must ensure no two parallel tasks share the same file.
 
-### 18.9 Teammate report format (Teammate → Leader)
+### 13.9 Teammate report format (Teammate → Leader)
 
 When a teammate reports completion via `SendMessage`, the message must include:
 
@@ -486,9 +470,26 @@ Notes:    <anything the Leader should know: edge cases, deferred items, surprise
 If `Status: blocked`, the teammate must describe exactly what is unclear or impossible,
 and stop all implementation until the Leader responds.
 
+### 13.10 Peer review with teammates
+
+Beyond implementation, spawn teammates for peer review in these situations:
+
+| Situation | Purpose |
+|-----------|---------|
+| Plan review | Catch design flaws, missed edge cases, plan-vs-code discrepancies |
+| Code review | Find logic bugs, security vulnerabilities, convention violations |
+| Security audit | OWASP checks, secret exposure, injection vectors |
+
+Review teammates should **discuss with each other** via `SendMessage` — not just report
+independently to the Leader. The back-and-forth debate surfaces issues that a single
+reviewer would miss.
+
+**Not mandatory** — skip for simple changes. Use when the change is complex or high-risk.
+When a full team is overkill, a single `Agent` tool reviewer subagent may suffice.
+
 ---
 
-## 19) Performance Tips
+## 14) Performance Tips
 
 **Required before optimizing any hot path:**
 read `.claude/docs/performance-tips.md` — measured patterns specific to this codebase.

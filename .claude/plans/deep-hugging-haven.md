@@ -1,38 +1,47 @@
-# Plan: Disable squash merge — preserve commit history on all PRs
+# Plan: Add peer review guideline to CLAUDE.md §18
 
 ## Context
 
-Squash merge was used for `feat/error-kind-standard → dev` (PR #17), collapsing all feature
-branch commits into one. This loses individual commit history. The policy should be:
-no squash merge allowed on any PR.
-
-Current repo settings: `allow_squash_merge: true`, `allow_merge_commit: true`,
-`allow_rebase_merge: true`.
+§18 currently covers only implementation-focused team workflows. Teammates can also be
+spawned for **non-implementation work** — plan review, code review, and security audits —
+where a second pair of eyes catches bugs, logic errors, and plan-vs-code discrepancies.
+No guideline exists for this. Add §18.10.
 
 ---
 
 ## Changes
 
-### 1. GitHub repo settings — disable squash merge
+### `CLAUDE.md` — update §18.1 Team structure
 
-```bash
-gh api --method PATCH repos/xqzplvnrtjkaoex/plrqzvxnktjaeos \
-  --field allow_squash_merge=false
-```
-
-### 2. `.claude/docs/github-workflow.md` — update Merge strategy section
+Change the team member model line to reflect the model-per-role rule:
 
 ```diff
- ## Merge strategy
+-- **Team member model**: `claude-sonnet-4-6` (Sonnet 4.6).
++- **Team member model**: `claude-sonnet-4-6` (Sonnet 4.6) for implementation;
++  `claude-opus-4-6` (Opus 4.6) for non-implementation work (review, audit). See §18.10.
+```
 
--- `dev → master`: **merge commit** (preserves dev commit history)
--- `feature → dev`: squash or merge — dev history is flexible
-+- `dev → master`: **merge commit** — preserves full dev commit history in master
-+- `feature → dev`: **merge commit** or **rebase** — squash is disabled
-+- Squash merge is disabled on this repo; never use `gh pr merge --squash`
-+  Use `gh pr merge --merge` (or `--rebase`) instead
- - Force push blocked on `master`
- - Delete short-lived feature branches after merge into `dev`
+### `CLAUDE.md` — add §18.10 Peer review with teammates
+
+Insert after §18.9 (Teammate report format), before the `---` that separates §18 from §19:
+
+```markdown
+### 18.10 Peer review with teammates
+
+Beyond implementation, spawn teammates for peer review in these situations:
+
+| Situation | Purpose |
+|-----------|---------|
+| Plan review | Catch design flaws, missed edge cases, plan-vs-code discrepancies |
+| Code review | Find logic bugs, security vulnerabilities, convention violations |
+| Security audit | OWASP checks, secret exposure, injection vectors |
+
+Review teammates should **discuss with each other** via `SendMessage` — not just report
+independently to the Leader. The back-and-forth debate surfaces issues that a single
+reviewer would miss.
+
+**Not mandatory** — skip for simple changes. Use when the change is complex or high-risk.
+When a full team is overkill, a single `Agent` tool reviewer subagent may suffice.
 ```
 
 ---
@@ -41,24 +50,17 @@ gh api --method PATCH repos/xqzplvnrtjkaoex/plrqzvxnktjaeos \
 
 | File | Action |
 |------|--------|
-| GitHub repo settings | `allow_squash_merge` → `false` via `gh api PATCH` |
-| `.claude/docs/github-workflow.md` | Update Merge strategy section |
+| `CLAUDE.md` | Update §18.1 (model-per-role rule) + add §18.10 after §18.9 |
 
 ---
 
 ## Verification
 
-```bash
-# Confirm setting took effect
-gh api repos/xqzplvnrtjkaoex/plrqzvxnktjaeos --jq '.allow_squash_merge'
-# Expected: false
-```
-
-GitHub PR 머지 UI에서 "Squash and merge" 버튼이 사라지면 완료.
+Read `CLAUDE.md` and confirm §18.10 is correctly placed between §18.9 and the `---` separator.
 
 ---
 
 ## Tests / Docs
 
-- 테스트 없음 (repo config 변경)
-- `github-workflow.md` 만 업데이트
+- No tests (documentation change only)
+- `CLAUDE.md` is the target document

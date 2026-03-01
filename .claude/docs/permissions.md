@@ -1,6 +1,6 @@
 # Authorization and Permissions Reference
 
-> Reference doc for CLAUDE.md §8. Read when GitHub permissions block your work.
+> Reference doc for CLAUDE.md §6. Read when GitHub permissions block your work.
 
 ---
 

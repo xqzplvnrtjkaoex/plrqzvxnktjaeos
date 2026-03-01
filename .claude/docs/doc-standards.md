@@ -1,18 +1,18 @@
 # Documentation Standards Reference
 
-> Reference doc for CLAUDE.md §14 and §17. Read before writing public API docs, rustdoc comments,
+> Reference doc for CLAUDE.md §12. Read before writing public API docs, rustdoc comments,
 > or any project documentation.
 
 ---
 
-## Language and style rules (§14)
+## Language and style rules
 
 - Always respond in English and write documents in English.
 - Before writing docs, see <https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing> and avoid these patterns.
 
 ---
 
-## Documentation Standards (§17)
+## Documentation Standards
 
 Ambiguous cases not covered here → discuss before deciding. Document less, but document accurately.
 

@@ -1,6 +1,6 @@
 # External Tool Usage Policy Reference
 
-> Reference doc for CLAUDE.md §16. Read before adding or upgrading any crate, API, or CLI dependency.
+> Reference doc for CLAUDE.md §11. Read before adding or upgrading any crate, API, or CLI dependency.
 
 ---
 

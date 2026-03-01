@@ -5,6 +5,7 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "teammateMode": "tmux",
+  "model": "opus",
   "permissions": {
     "additionalDirectories": [],
     "allow": [
