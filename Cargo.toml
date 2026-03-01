@@ -9,6 +9,7 @@ members = [
     "services/auth",
     "services/auth/schema",
     "services/auth/migration",
+    "services/users",
     "services/users/schema",
     "services/users/migration",
 ]

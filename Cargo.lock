@@ -2062,6 +2062,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "madome-users"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-extra",
+ "axum-test",
+ "chrono",
+ "madome-auth-types",
+ "madome-core",
+ "madome-domain",
+ "madome-proto",
+ "madome-testing",
+ "madome-users-schema",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_qs",
+ "thiserror 2.0.18",
+ "tokio",
+ "tonic",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "madome-users-migration"
 version = "0.1.0"
 dependencies = [
@@ -3507,6 +3536,18 @@ dependencies = [
  "itoa",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "serde_qs"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac22439301a0b6f45a037681518e3169e8db1db76080e2e9600a08d1027df037"
+dependencies = [
+ "itoa",
+ "percent-encoding",
+ "ryu",
+ "serde",
 ]
 
 [[package]]
