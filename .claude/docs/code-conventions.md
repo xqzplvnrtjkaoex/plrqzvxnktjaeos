@@ -56,6 +56,48 @@ impl IntoResponse for MyServiceError {
 
 ---
 
+## Domain trait naming and repository grouping
+
+### Trait suffix rules
+
+All traits in `domain/repository.rs` follow one of three naming suffixes:
+
+| Suffix | Backend | When to use |
+|--------|---------|-------------|
+| `XxxRepository` | Database (sea-orm) | Standard CRUD for a single domain aggregate |
+| `XxxPort` | Cross-aggregate DB transaction or external service (gRPC) | Operation that spans multiple aggregates or calls another service |
+| `XxxCache` | Redis / in-memory | Ephemeral state with TTL (e.g., ceremony states) |
+
+### Repository grouping — one trait per aggregate, not per table
+
+The number of tables a repository owns depends on how the domain queries them:
+
+| Pattern | When to use | Example |
+|---------|-------------|---------|
+| 1 trait : 1 table | Independent CRUD, no cross-table queries | `UserRepository` → `users` |
+| 1 trait : N tables (union) | Combined list from sibling tables via UNION ALL | `TasteRepository` → `taste_books` + `taste_book_tags` |
+| 1 trait : N tables (parent-child) | Parent + children always read/written together | `NotificationRepository` → `notification_books` + `notification_book_tags` |
+| 1 trait : N tables (transaction) | Multi-table writes must be atomic | `AuthCodeRepository` → `auth_codes` + `outbox_events` |
+
+**Decision rule:** If two tables appear in the same SQL query (JOIN, UNION ALL, or
+transaction), they belong in one trait. If they are always queried independently, keep
+them in separate traits.
+
+### Port examples
+
+| Port | Why it's a Port, not a Repository |
+|------|-----------------------------------|
+| `RenewBookPort` | Atomic operation spanning 3 aggregates (taste + history + notification tables) |
+| `LibraryQueryPort` | Outbound gRPC call to another service — no local DB |
+
+### Cache examples
+
+| Cache | Backend | Key pattern |
+|-------|---------|-------------|
+| `PasskeyCache` | Redis | `passkey_reg:{user_id}:{reg_id}`, `passkey_auth:{email}:{auth_id}` — two ceremony kinds grouped in one trait |
+
+---
+
 ## Env var reading — use std::env::var directly
 
 Do not use the `envy` crate for loading config in new code — it is unmaintained.
