@@ -42,5 +42,3 @@ let port: u16 = std::env::var("AUTH_PORT")
     .expect("AUTH_PORT must be a valid port number");
 ```
 
-(The existing `AuthConfig` in `services/auth` uses `envy` via `madome-core`. Refactoring it
-is deferred to a dedicated PR.)
