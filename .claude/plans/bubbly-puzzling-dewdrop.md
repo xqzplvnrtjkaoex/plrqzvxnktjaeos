@@ -751,7 +751,7 @@ PII (emails) must be redacted.
 inbound request
   1. Strip ALL inbound x-madome-* headers     ← prevents spoofing
      ALLOWED_INBOUND_X_MADOME: &[&str] = &[]  ← extend as needed
-  2. x-request-id: absent/invalid → generate UUID v4
+  2. x-request-id: absent/invalid → generate UUID v7
   3. Validate madome_access_token cookie (JWT sig + exp)
      Valid → inject x-madome-user-id + x-madome-user-role
      Absent/invalid → forward without identity headers

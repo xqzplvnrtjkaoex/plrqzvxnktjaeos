@@ -6,7 +6,7 @@ pub struct MakeUuidRequestId;
 
 impl MakeRequestId for MakeUuidRequestId {
     fn make_request_id<B>(&mut self, _request: &axum::http::Request<B>) -> Option<RequestId> {
-        let id = Uuid::new_v4().to_string();
+        let id = Uuid::now_v7().to_string();
         Some(RequestId::new(id.parse().unwrap()))
     }
 }
