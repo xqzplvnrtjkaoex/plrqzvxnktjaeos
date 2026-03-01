@@ -9,11 +9,17 @@ use crate::error::UsersServiceError;
 
 // ── GetHistory ───────────────────────────────────────────────────────────────
 
-pub struct GetHistoryUseCase<R: HistoryRepository> {
+pub struct GetHistoryUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub repo: R,
 }
 
-impl<R: HistoryRepository> GetHistoryUseCase<R> {
+impl<R> GetHistoryUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -28,11 +34,17 @@ impl<R: HistoryRepository> GetHistoryUseCase<R> {
 
 // ── GetHistories ─────────────────────────────────────────────────────────────
 
-pub struct GetHistoriesUseCase<R: HistoryRepository> {
+pub struct GetHistoriesUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub repo: R,
 }
 
-impl<R: HistoryRepository> GetHistoriesUseCase<R> {
+impl<R> GetHistoriesUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -50,11 +62,17 @@ pub struct CreateHistoryInput {
     pub page: i32,
 }
 
-pub struct CreateHistoryUseCase<R: HistoryRepository> {
+pub struct CreateHistoryUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub repo: R,
 }
 
-impl<R: HistoryRepository> CreateHistoryUseCase<R> {
+impl<R> CreateHistoryUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -74,11 +92,17 @@ impl<R: HistoryRepository> CreateHistoryUseCase<R> {
 
 // ── DeleteHistory ────────────────────────────────────────────────────────────
 
-pub struct DeleteHistoryUseCase<R: HistoryRepository> {
+pub struct DeleteHistoryUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub repo: R,
 }
 
-impl<R: HistoryRepository> DeleteHistoryUseCase<R> {
+impl<R> DeleteHistoryUseCase<R>
+where
+    R: HistoryRepository,
+{
     pub async fn execute(&self, user_id: Uuid, book_id: i32) -> Result<(), UsersServiceError> {
         let deleted = self.repo.delete(user_id, book_id).await?;
         if !deleted {

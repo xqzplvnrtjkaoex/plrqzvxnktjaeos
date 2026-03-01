@@ -6,6 +6,9 @@
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Tests**: Inline `#[cfg(test)]` blocks in each module
 - **Async**: Use async I/O wherever the calling context is already async.
+- **Generic bounds**: Use `where` clauses, not inline bounds.
+  Write `impl<R> Foo<R> where R: Trait`, not `impl<R: Trait> Foo<R>`.
+  Applies to both `struct` definitions and `impl` blocks.
 - **Naming clarity**: Use full, descriptive names. Do not abbreviate unless the
   abbreviation is universally understood in Rust (`db`, `tx`, `err`, `ctx`, `req`,
   `resp`, `idx`). Single-letter variables are only acceptable as `_` (unused) or

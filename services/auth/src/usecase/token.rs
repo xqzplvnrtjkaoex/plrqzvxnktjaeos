@@ -90,13 +90,21 @@ pub struct CreateTokenOutput {
     pub refresh_token: String,
 }
 
-pub struct CreateTokenUseCase<U: UserRepository, A: AuthCodeRepository> {
+pub struct CreateTokenUseCase<U, A>
+where
+    U: UserRepository,
+    A: AuthCodeRepository,
+{
     pub users: U,
     pub auth_codes: A,
     pub jwt_secret: String,
 }
 
-impl<U: UserRepository, A: AuthCodeRepository> CreateTokenUseCase<U, A> {
+impl<U, A> CreateTokenUseCase<U, A>
+where
+    U: UserRepository,
+    A: AuthCodeRepository,
+{
     pub async fn execute(
         &self,
         input: CreateTokenInput,
@@ -138,12 +146,18 @@ pub struct RefreshTokenOutput {
     pub refresh_token: String,
 }
 
-pub struct RefreshTokenUseCase<U: UserRepository> {
+pub struct RefreshTokenUseCase<U>
+where
+    U: UserRepository,
+{
     pub users: U,
     pub jwt_secret: String,
 }
 
-impl<U: UserRepository> RefreshTokenUseCase<U> {
+impl<U> RefreshTokenUseCase<U>
+where
+    U: UserRepository,
+{
     pub async fn execute(
         &self,
         refresh_token_value: &str,

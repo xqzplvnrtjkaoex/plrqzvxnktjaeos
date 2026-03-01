@@ -14,11 +14,17 @@ pub struct CreateUserInput {
     pub role: u8,
 }
 
-pub struct CreateUserUseCase<R: UserRepository> {
+pub struct CreateUserUseCase<R>
+where
+    R: UserRepository,
+{
     pub repo: R,
 }
 
-impl<R: UserRepository> CreateUserUseCase<R> {
+impl<R> CreateUserUseCase<R>
+where
+    R: UserRepository,
+{
     pub async fn execute(&self, input: CreateUserInput) -> Result<(), UsersServiceError> {
         if !validate_handle(&input.handle) {
             return Err(UsersServiceError::InvalidHandle);
@@ -39,11 +45,17 @@ impl<R: UserRepository> CreateUserUseCase<R> {
 
 // ── GetUser ──────────────────────────────────────────────────────────────────
 
-pub struct GetUserUseCase<R: UserRepository> {
+pub struct GetUserUseCase<R>
+where
+    R: UserRepository,
+{
     pub repo: R,
 }
 
-impl<R: UserRepository> GetUserUseCase<R> {
+impl<R> GetUserUseCase<R>
+where
+    R: UserRepository,
+{
     pub async fn execute(&self, user_id: Uuid) -> Result<User, UsersServiceError> {
         self.repo
             .find_by_id(user_id)
@@ -59,11 +71,17 @@ pub struct UpdateUserInput {
     pub handle: Option<String>,
 }
 
-pub struct UpdateUserUseCase<R: UserRepository> {
+pub struct UpdateUserUseCase<R>
+where
+    R: UserRepository,
+{
     pub repo: R,
 }
 
-impl<R: UserRepository> UpdateUserUseCase<R> {
+impl<R> UpdateUserUseCase<R>
+where
+    R: UserRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,

@@ -1,48 +1,86 @@
-# Plan: Fix less-idiomatic code patterns
+# Plan: Add `OrderByRandom` + enforce `where` clause convention
 
 ## Context
 
-Code review found two less-idiomatic patterns in the existing codebase:
+Two issues:
 
-1. Double `unwrap_or` on `Option<Option<T>>` in taste handler — should use `.and_then()`
-2. Auth service error tests missing `should_` prefix — violates `testing-philosophy.md`
+1. **`Random` sort no-op**: `TasteSortBy::Random` and `HistorySortBy::Random` exist but 3
+   sea-orm query builder branches silently skip ordering (`=> query`). The raw SQL UNION ALL
+   path works correctly. Need an `OrderByRandom` trait (reference: `syrflover/sea-extra`).
+
+2. **Inline generic bounds**: All use case structs and impls use `impl<R: Trait>` instead of
+   `where` clauses. Add convention and refactor all existing occurrences.
 
 ---
 
 ## Changes
 
-### 1. `services/users/src/handlers/taste.rs:106-111` — simplify double unwrap
+### 1. `.claude/docs/code-conventions.md` — add `where` clause rule
 
-```rust
-// Before (lines 106-111):
-let sort_by = query
-    .sort_by
-    .as_deref()
-    .map(TasteSortBy::from_kebab)
-    .unwrap_or(Some(TasteSortBy::default()))
-    .unwrap_or_default();
+Insert after the "Async" bullet (line 8), before "Naming clarity":
 
-// After:
-let sort_by = query
-    .sort_by
-    .as_deref()
-    .and_then(TasteSortBy::from_kebab)
-    .unwrap_or_default();
+```markdown
+- **Generic bounds**: Use `where` clauses, not inline bounds.
+  Write `impl<R> Foo<R> where R: Trait`, not `impl<R: Trait> Foo<R>`.
+  Applies to both `struct` definitions and `impl` blocks.
 ```
 
-### 2. `services/auth/src/error.rs` — rename 9 test functions
+### 2. `crates/madome-core` — add `OrderByRandom` trait
 
-| Before | After |
-|--------|-------|
-| `user_not_found_json_body` | `should_return_user_not_found` |
-| `credential_not_found_json_body` | `should_return_credential_not_found` |
-| `invalid_authcode_json_body` | `should_return_invalid_authcode` |
-| `invalid_token_json_body` | `should_return_invalid_token` |
-| `invalid_refresh_token_json_body` | `should_return_invalid_refresh_token` |
-| `invalid_session_json_body` | `should_return_invalid_session` |
-| `invalid_credential_json_body` | `should_return_invalid_credential` |
-| `too_many_authcodes_json_body` | `should_return_too_many_authcodes` |
-| `internal_json_body` | `should_return_internal` |
+**`Cargo.toml`** — add:
+```toml
+sea-orm = { workspace = true }
+```
+
+**`src/sea_ext.rs`** — new file:
+```rust
+use sea_orm::{
+    sea_query::{Func, SimpleExpr},
+    EntityTrait, Order, QueryOrder, Select,
+};
+
+pub trait OrderByRandom {
+    fn order_by_random(self) -> Self;
+}
+
+impl<E> OrderByRandom for Select<E>
+where
+    E: EntityTrait,
+{
+    fn order_by_random(mut self) -> Self {
+        QueryOrder::query(&mut self)
+            .order_by_expr(SimpleExpr::FunctionCall(Func::random()), Order::Desc);
+        self
+    }
+}
+```
+
+**`src/lib.rs`** — add `pub mod sea_ext;`
+
+### 3. `services/users/src/infra/db.rs` — fix 3 no-op `Random` arms
+
+Add import: `use madome_core::sea_ext::OrderByRandom;`
+
+| Line | Before | After |
+|------|--------|-------|
+| 199 | `TasteSortBy::Random => query,` | `TasteSortBy::Random => query.order_by_random(),` |
+| 230 | `TasteSortBy::Random => query,` | `TasteSortBy::Random => query.order_by_random(),` |
+| 423 | `HistorySortBy::Random => query,` | `HistorySortBy::Random => query.order_by_random(),` |
+
+### 4. Refactor inline bounds → `where` clauses
+
+All `pub struct Xxx<R: Trait>` and `impl<R: Trait> Xxx<R>` become
+`pub struct Xxx<R> where R: Trait` and `impl<R> Xxx<R> where R: Trait`.
+
+**`services/users/src/usecase/taste.rs`** — 12 structs + 12 impls (24 changes)
+**`services/users/src/usecase/history.rs`** — 4 structs + 4 impls
+**`services/users/src/usecase/user.rs`** — 3 structs + 3 impls
+**`services/users/src/usecase/notification.rs`** — 2 structs + 2 impls
+**`services/users/src/usecase/fcm_token.rs`** — 1 struct + 1 impl
+**`services/users/src/usecase/renew_book.rs`** — 1 struct + 1 impl
+**`services/auth/src/usecase/authcode.rs`** — 1 struct + 1 impl
+**`services/auth/src/usecase/token.rs`** — 2 structs + 2 impls
+**`services/auth/src/usecase/passkey.rs`** — 6 structs + 6 impls
 
 ---
 
@@ -50,15 +88,20 @@ let sort_by = query
 
 | File | Action |
 |------|--------|
-| `services/users/src/handlers/taste.rs` | `.and_then()` instead of double `unwrap_or` |
-| `services/auth/src/error.rs` | Rename 9 test functions to `should_` prefix |
+| `.claude/docs/code-conventions.md` | Add `where` clause rule |
+| `crates/madome-core/Cargo.toml` | Add `sea-orm` dep |
+| `crates/madome-core/src/sea_ext.rs` | New — `OrderByRandom` trait |
+| `crates/madome-core/src/lib.rs` | Add `pub mod sea_ext;` |
+| `services/users/src/infra/db.rs` | Import + fix 3 `Random` arms |
+| `services/users/src/usecase/*.rs` | Inline bounds → `where` (23 structs + 23 impls) |
+| `services/auth/src/usecase/*.rs` | Inline bounds → `where` (9 structs + 9 impls) |
 
 ---
 
 ## Verification
 
 ```bash
-cargo test -p madome-users --all-features
-cargo test -p madome-auth --all-features
+cargo fmt --all
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
 ```

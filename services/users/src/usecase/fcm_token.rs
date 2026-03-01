@@ -12,11 +12,17 @@ pub struct CreateFcmTokenInput {
     pub token: String,
 }
 
-pub struct CreateFcmTokenUseCase<R: FcmTokenRepository> {
+pub struct CreateFcmTokenUseCase<R>
+where
+    R: FcmTokenRepository,
+{
     pub repo: R,
 }
 
-impl<R: FcmTokenRepository> CreateFcmTokenUseCase<R> {
+impl<R> CreateFcmTokenUseCase<R>
+where
+    R: FcmTokenRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,

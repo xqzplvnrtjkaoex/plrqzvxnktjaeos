@@ -3,11 +3,17 @@ use crate::error::UsersServiceError;
 
 // ── RenewBook (gRPC path) ────────────────────────────────────────────────────
 
-pub struct RenewBookUseCase<R: RenewBookPort> {
+pub struct RenewBookUseCase<R>
+where
+    R: RenewBookPort,
+{
     pub port: R,
 }
 
-impl<R: RenewBookPort> RenewBookUseCase<R> {
+impl<R> RenewBookUseCase<R>
+where
+    R: RenewBookPort,
+{
     pub async fn execute(&self, old_id: i32, new_id: i32) -> Result<(), UsersServiceError> {
         self.port.renew_book_id(old_id, new_id).await
     }

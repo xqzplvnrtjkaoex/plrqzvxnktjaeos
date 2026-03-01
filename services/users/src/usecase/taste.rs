@@ -9,11 +9,17 @@ use crate::error::UsersServiceError;
 
 // ── GetTaste (single book) ───────────────────────────────────────────────────
 
-pub struct GetTasteBookUseCase<R: TasteRepository> {
+pub struct GetTasteBookUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> GetTasteBookUseCase<R> {
+impl<R> GetTasteBookUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -28,11 +34,17 @@ impl<R: TasteRepository> GetTasteBookUseCase<R> {
 
 // ── GetTaste (single book tag) ───────────────────────────────────────────────
 
-pub struct GetTasteBookTagUseCase<R: TasteRepository> {
+pub struct GetTasteBookTagUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> GetTasteBookTagUseCase<R> {
+impl<R> GetTasteBookTagUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -48,11 +60,17 @@ impl<R: TasteRepository> GetTasteBookTagUseCase<R> {
 
 // ── GetTastes (combined list — UNION ALL) ───────────────────────────────────
 
-pub struct GetTastesUseCase<R: TasteRepository> {
+pub struct GetTastesUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> GetTastesUseCase<R> {
+impl<R> GetTastesUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -66,11 +84,17 @@ impl<R: TasteRepository> GetTastesUseCase<R> {
 
 // ── GetTastes (list books only) ─────────────────────────────────────────────
 
-pub struct GetTasteBooksUseCase<R: TasteRepository> {
+pub struct GetTasteBooksUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> GetTasteBooksUseCase<R> {
+impl<R> GetTasteBooksUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -86,11 +110,17 @@ impl<R: TasteRepository> GetTasteBooksUseCase<R> {
 
 // ── GetTastes (list book tags only) ─────────────────────────────────────────
 
-pub struct GetTasteBookTagsUseCase<R: TasteRepository> {
+pub struct GetTasteBookTagsUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> GetTasteBookTagsUseCase<R> {
+impl<R> GetTasteBookTagsUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -106,11 +136,17 @@ impl<R: TasteRepository> GetTasteBookTagsUseCase<R> {
 
 // ── GetTastesByBookIds ───────────────────────────────────────────────────────
 
-pub struct GetTastesByBookIdsUseCase<R: TasteRepository> {
+pub struct GetTastesByBookIdsUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> GetTastesByBookIdsUseCase<R> {
+impl<R> GetTastesByBookIdsUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -127,12 +163,20 @@ pub struct CreateTasteBookInput {
     pub is_dislike: bool,
 }
 
-pub struct CreateTasteBookUseCase<R: TasteRepository, L: LibraryQueryPort> {
+pub struct CreateTasteBookUseCase<R, L>
+where
+    R: TasteRepository,
+    L: LibraryQueryPort,
+{
     pub repo: R,
     pub library: L,
 }
 
-impl<R: TasteRepository, L: LibraryQueryPort> CreateTasteBookUseCase<R, L> {
+impl<R, L> CreateTasteBookUseCase<R, L>
+where
+    R: TasteRepository,
+    L: LibraryQueryPort,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -163,12 +207,20 @@ pub struct CreateTasteBookTagInput {
     pub is_dislike: bool,
 }
 
-pub struct CreateTasteBookTagUseCase<R: TasteRepository, L: LibraryQueryPort> {
+pub struct CreateTasteBookTagUseCase<R, L>
+where
+    R: TasteRepository,
+    L: LibraryQueryPort,
+{
     pub repo: R,
     pub library: L,
 }
 
-impl<R: TasteRepository, L: LibraryQueryPort> CreateTasteBookTagUseCase<R, L> {
+impl<R, L> CreateTasteBookTagUseCase<R, L>
+where
+    R: TasteRepository,
+    L: LibraryQueryPort,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -198,11 +250,17 @@ impl<R: TasteRepository, L: LibraryQueryPort> CreateTasteBookTagUseCase<R, L> {
 
 // ── DeleteTaste (book) ───────────────────────────────────────────────────────
 
-pub struct DeleteTasteBookUseCase<R: TasteRepository> {
+pub struct DeleteTasteBookUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> DeleteTasteBookUseCase<R> {
+impl<R> DeleteTasteBookUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(&self, user_id: Uuid, book_id: i32) -> Result<(), UsersServiceError> {
         let deleted = self.repo.delete_book(user_id, book_id).await?;
         if !deleted {
@@ -214,11 +272,17 @@ impl<R: TasteRepository> DeleteTasteBookUseCase<R> {
 
 // ── DeleteTaste (book tag) ───────────────────────────────────────────────────
 
-pub struct DeleteTasteBookTagUseCase<R: TasteRepository> {
+pub struct DeleteTasteBookTagUseCase<R>
+where
+    R: TasteRepository,
+{
     pub repo: R,
 }
 
-impl<R: TasteRepository> DeleteTasteBookTagUseCase<R> {
+impl<R> DeleteTasteBookTagUseCase<R>
+where
+    R: TasteRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,

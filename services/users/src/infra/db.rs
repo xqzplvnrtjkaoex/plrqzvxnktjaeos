@@ -6,6 +6,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
+use madome_core::sea_ext::OrderByRandom;
 use madome_domain::pagination::{PageRequest, Sort};
 use madome_users_schema::{
     fcm_tokens, history_books, notification_book_tags, notification_books, taste_book_tags,
@@ -196,7 +197,7 @@ impl TasteRepository for DbTasteRepository {
                 query.order_by_desc(taste_books::Column::CreatedAt)
             }
             TasteSortBy::CreatedAt(Sort::Asc) => query.order_by_asc(taste_books::Column::CreatedAt),
-            TasteSortBy::Random => query,
+            TasteSortBy::Random => query.order_by_random(),
         };
         let models = query
             .offset(((page.page - 1) * page.per_page) as u64)
@@ -227,7 +228,7 @@ impl TasteRepository for DbTasteRepository {
             TasteSortBy::CreatedAt(Sort::Asc) => {
                 query.order_by_asc(taste_book_tags::Column::CreatedAt)
             }
-            TasteSortBy::Random => query,
+            TasteSortBy::Random => query.order_by_random(),
         };
         let models = query
             .offset(((page.page - 1) * page.per_page) as u64)
@@ -420,7 +421,7 @@ impl HistoryRepository for DbHistoryRepository {
             HistorySortBy::UpdatedAt(Sort::Asc) => {
                 query.order_by_asc(history_books::Column::UpdatedAt)
             }
-            HistorySortBy::Random => query,
+            HistorySortBy::Random => query.order_by_random(),
         };
         let models = query
             .offset(((page.page - 1) * page.per_page) as u64)

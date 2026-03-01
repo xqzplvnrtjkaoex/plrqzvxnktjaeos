@@ -8,11 +8,17 @@ use crate::error::UsersServiceError;
 
 // ── GetNotifications ─────────────────────────────────────────────────────────
 
-pub struct GetNotificationsUseCase<R: NotificationRepository> {
+pub struct GetNotificationsUseCase<R>
+where
+    R: NotificationRepository,
+{
     pub repo: R,
 }
 
-impl<R: NotificationRepository> GetNotificationsUseCase<R> {
+impl<R> GetNotificationsUseCase<R>
+where
+    R: NotificationRepository,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -25,11 +31,17 @@ impl<R: NotificationRepository> GetNotificationsUseCase<R> {
 
 // ── CreateNotification (gRPC path) ───────────────────────────────────────────
 
-pub struct CreateNotificationUseCase<R: NotificationRepository> {
+pub struct CreateNotificationUseCase<R>
+where
+    R: NotificationRepository,
+{
     pub repo: R,
 }
 
-impl<R: NotificationRepository> CreateNotificationUseCase<R> {
+impl<R> CreateNotificationUseCase<R>
+where
+    R: NotificationRepository,
+{
     pub async fn execute(&self, notification: NotificationBook) -> Result<(), UsersServiceError> {
         self.repo.create(&notification).await
     }

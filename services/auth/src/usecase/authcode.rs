@@ -23,12 +23,20 @@ pub struct CreateAuthcodeInput {
     pub email: String,
 }
 
-pub struct CreateAuthcodeUseCase<U: UserRepository, A: AuthCodeRepository> {
+pub struct CreateAuthcodeUseCase<U, A>
+where
+    U: UserRepository,
+    A: AuthCodeRepository,
+{
     pub users: U,
     pub auth_codes: A,
 }
 
-impl<U: UserRepository, A: AuthCodeRepository> CreateAuthcodeUseCase<U, A> {
+impl<U, A> CreateAuthcodeUseCase<U, A>
+where
+    U: UserRepository,
+    A: AuthCodeRepository,
+{
     pub async fn execute(&self, input: CreateAuthcodeInput) -> Result<(), AuthServiceError> {
         // 1. Find user by email → 404 if not found
         let user = self

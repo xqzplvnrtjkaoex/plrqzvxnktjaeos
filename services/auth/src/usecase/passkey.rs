@@ -11,7 +11,10 @@ use crate::usecase::token::{CreateTokenOutput, issue_access_token, issue_refresh
 
 // ── List passkeys ─────────────────────────────────────────────────────────────
 
-pub struct ListPasskeysUseCase<P: PasskeyRepository> {
+pub struct ListPasskeysUseCase<P>
+where
+    P: PasskeyRepository,
+{
     pub passkeys: P,
 }
 
@@ -20,7 +23,10 @@ pub struct PasskeyInfo {
     pub created_at: chrono::DateTime<Utc>,
 }
 
-impl<P: PasskeyRepository> ListPasskeysUseCase<P> {
+impl<P> ListPasskeysUseCase<P>
+where
+    P: PasskeyRepository,
+{
     pub async fn execute(&self, user_id: Uuid) -> Result<Vec<PasskeyInfo>, AuthServiceError> {
         let records = self.passkeys.list_by_user(user_id).await?;
         Ok(records
@@ -35,11 +41,17 @@ impl<P: PasskeyRepository> ListPasskeysUseCase<P> {
 
 // ── Delete passkey ────────────────────────────────────────────────────────────
 
-pub struct DeletePasskeyUseCase<P: PasskeyRepository> {
+pub struct DeletePasskeyUseCase<P>
+where
+    P: PasskeyRepository,
+{
     pub passkeys: P,
 }
 
-impl<P: PasskeyRepository> DeletePasskeyUseCase<P> {
+impl<P> DeletePasskeyUseCase<P>
+where
+    P: PasskeyRepository,
+{
     /// Returns 404 if not found or belongs to a different user.
     pub async fn execute(
         &self,
@@ -61,14 +73,24 @@ pub struct StartRegistrationOutput {
     pub challenge: CreationChallengeResponse,
 }
 
-pub struct StartRegistrationUseCase<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> {
+pub struct StartRegistrationUseCase<U, P, C>
+where
+    U: UserRepository,
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub users: U,
     pub passkeys: P,
     pub cache: C,
     pub webauthn: Arc<Webauthn>,
 }
 
-impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> StartRegistrationUseCase<U, P, C> {
+impl<U, P, C> StartRegistrationUseCase<U, P, C>
+where
+    U: UserRepository,
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -113,13 +135,21 @@ impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> StartRegistration
 
 // ── Finish registration ───────────────────────────────────────────────────────
 
-pub struct FinishRegistrationUseCase<P: PasskeyRepository, C: PasskeyCache> {
+pub struct FinishRegistrationUseCase<P, C>
+where
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub passkeys: P,
     pub cache: C,
     pub webauthn: Arc<Webauthn>,
 }
 
-impl<P: PasskeyRepository, C: PasskeyCache> FinishRegistrationUseCase<P, C> {
+impl<P, C> FinishRegistrationUseCase<P, C>
+where
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub async fn execute(
         &self,
         user_id: Uuid,
@@ -164,14 +194,24 @@ pub struct StartAuthenticationOutput {
     pub challenge: RequestChallengeResponse,
 }
 
-pub struct StartAuthenticationUseCase<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> {
+pub struct StartAuthenticationUseCase<U, P, C>
+where
+    U: UserRepository,
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub users: U,
     pub passkeys: P,
     pub cache: C,
     pub webauthn: Arc<Webauthn>,
 }
 
-impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> StartAuthenticationUseCase<U, P, C> {
+impl<U, P, C> StartAuthenticationUseCase<U, P, C>
+where
+    U: UserRepository,
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub async fn execute(
         &self,
         email: &str,
@@ -212,7 +252,12 @@ impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> StartAuthenticati
 
 // ── Finish authentication ─────────────────────────────────────────────────────
 
-pub struct FinishAuthenticationUseCase<U: UserRepository, P: PasskeyRepository, C: PasskeyCache> {
+pub struct FinishAuthenticationUseCase<U, P, C>
+where
+    U: UserRepository,
+    P: PasskeyRepository,
+    C: PasskeyCache,
+{
     pub users: U,
     pub passkeys: P,
     pub cache: C,
@@ -220,8 +265,11 @@ pub struct FinishAuthenticationUseCase<U: UserRepository, P: PasskeyRepository, 
     pub jwt_secret: String,
 }
 
-impl<U: UserRepository, P: PasskeyRepository, C: PasskeyCache>
-    FinishAuthenticationUseCase<U, P, C>
+impl<U, P, C> FinishAuthenticationUseCase<U, P, C>
+where
+    U: UserRepository,
+    P: PasskeyRepository,
+    C: PasskeyCache,
 {
     pub async fn execute(
         &self,
