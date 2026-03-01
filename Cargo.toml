@@ -55,9 +55,6 @@ uuid = { version = "1.21", features = ["v4", "serde"] }
 thiserror = { version = "2.0" }
 anyhow = { version = "1.0" }
 
-# config
-envy = { version = "0.4" }
-
 # tracing / observability
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

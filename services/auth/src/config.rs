@@ -1,8 +1,5 @@
-use madome_core::config::Config;
-use serde::Deserialize;
-
 /// Auth service configuration loaded from environment variables.
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct AuthConfig {
     /// PostgreSQL connection URL.
     pub database_url: String,
@@ -17,12 +14,22 @@ pub struct AuthConfig {
     /// Cookie domain attribute (root domain, e.g. "example.com").
     pub cookie_domain: String,
     /// TCP port to listen on (default 3112). Env var: `AUTH_PORT`.
-    #[serde(default = "default_port")]
     pub auth_port: u16,
 }
 
-fn default_port() -> u16 {
-    3112
+impl AuthConfig {
+    pub fn from_env() -> Self {
+        Self {
+            database_url: std::env::var("DATABASE_URL").expect("DATABASE_URL"),
+            redis_url: std::env::var("REDIS_URL").expect("REDIS_URL"),
+            jwt_secret: std::env::var("JWT_SECRET").expect("JWT_SECRET"),
+            webauthn_rp_id: std::env::var("WEBAUTHN_RP_ID").expect("WEBAUTHN_RP_ID"),
+            webauthn_origin: std::env::var("WEBAUTHN_ORIGIN").expect("WEBAUTHN_ORIGIN"),
+            cookie_domain: std::env::var("COOKIE_DOMAIN").expect("COOKIE_DOMAIN"),
+            auth_port: std::env::var("AUTH_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3112),
+        }
+    }
 }
-
-impl Config for AuthConfig {}

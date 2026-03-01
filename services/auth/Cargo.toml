@@ -47,9 +47,6 @@ uuid = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
-# config
-envy = { workspace = true }
-
 # tracing
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
