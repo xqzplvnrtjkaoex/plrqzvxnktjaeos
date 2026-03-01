@@ -167,8 +167,10 @@ If a reviewer requests changes: push a follow-up commit on the same branch — d
 
 ## Merge strategy
 
-- `dev → master`: **merge commit** (preserves dev commit history)
-- `feature → dev`: squash or merge — dev history is flexible
+- `dev → master`: **merge commit** — preserves full dev commit history in master
+- `feature → dev`: **merge commit** or **rebase** — squash is disabled
+- Squash merge is disabled on this repo; never use `gh pr merge --squash`.
+  Use `gh pr merge --merge` (or `--rebase`) instead.
 - Force push blocked on `master`
 - Delete short-lived feature branches after merge into `dev`
 
